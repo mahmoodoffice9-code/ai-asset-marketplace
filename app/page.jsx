@@ -2,13 +2,13 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// Supabase Direct Setup
+// Supabase Setup
 const supabaseUrl = "https://yfsstuvjvbzoclfagace.supabase.co";
 const supabaseAnonKey = "sb_publishable_mhzPm9OWHWzEJ-smFrjz1Q_RQI8BekP";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// 🔴 APNA PADDLE SANDBOX PAYMENT LINK
-const PADDLE_PAYMENT_LINK = "https://sandbox-buy.paddle.com/checkout/custom?price=pri_01ky5q757mnnabrfpq4tfdg49q"; 
+// 🟡 APNA BNB (BEP-20) WALLET ADDRESS YAHAN DALEIN
+const MY_BNB_WALLET = "0x4B4622a5E6a7E71fB51925B6093b90CEEce6F71e"; 
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("marketplace");
@@ -18,6 +18,12 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState("");
   const [authMsg, setAuthMsg] = useState("");
+
+  // Crypto Payment Modal State
+  const [selectedAsset, setSelectedAsset] = useState(null);
+  const [txHash, setTxHash] = useState("");
+  const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -106,25 +112,31 @@ export default function Home() {
     }
   };
 
-  // Direct Paddle Checkout Opening
-  const handlePaddleBuy = () => {
-    if (PADDLE_PAYMENT_LINK) {
-      window.open(PADDLE_PAYMENT_LINK, "_blank");
-    } else {
-      alert("Please configure PADDLE_PAYMENT_LINK in the code.");
+  const copyWallet = () => {
+    navigator.clipboard.writeText(MY_BNB_WALLET);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleVerifyCryptoPayment = (e) => {
+    e.preventDefault();
+    if (!txHash) {
+      alert("TxHash/TxID enter karein!");
+      return;
     }
+    setPaymentSubmitted(true);
   };
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: 'white', padding: '40px 20px', fontFamily: 'sans-serif' }}>
       
-      {/* Header / Navbar */}
+      {/* Header */}
       <div style={{ maxWidth: '1000px', margin: '0 auto 40px auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, color: '#a855f7' }}>AI Asset Hub 🚀</h2>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button 
-            onClick={() => { setActiveTab("marketplace"); setSubmitted(false); }}
+            onClick={() => { setActiveTab("marketplace"); setSubmitted(false); setSelectedAsset(null); }}
             style={{ backgroundColor: activeTab === "marketplace" ? "#9333ea" : "transparent", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}
           >
             Marketplace
@@ -158,33 +170,26 @@ export default function Home() {
       </div>
 
       {/* TAB 1: MARKETPLACE */}
-      {activeTab === "marketplace" && (
+      {activeTab === "marketplace" && !selectedAsset && (
         <>
           <div style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
-            <span style={{ backgroundColor: '#3b82f6', padding: '6px 16px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold' }}>
-              🚀 #1 AI Asset Marketplace
+            <span style={{ backgroundColor: '#f59e0b', color: 'black', padding: '6px 16px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold' }}>
+              🟡 BNB / Crypto Instant Checkout Active
             </span>
             <h1 style={{ fontSize: '48px', marginTop: '20px', marginBottom: '10px' }}>
-              Buy & Sell <span style={{ color: '#a855f7' }}>AI Agents, Workflows & SaaS</span>
+              Buy & Sell <span style={{ color: '#a855f7' }}>AI Agents & Workflows</span>
             </h1>
             <p style={{ color: '#94a3b8', fontSize: '18px', marginBottom: '30px' }}>
-              Monetize your AI scripts or automate your business in minutes.
+              Pay via BNB (BEP-20) for instant, fee-free direct access.
             </p>
-            
-            <button 
-              onClick={() => setActiveTab("upload")}
-              style={{ backgroundColor: '#9333ea', color: 'white', border: 'none', padding: '12px 24px', fontSize: '16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              Start Selling Today
-            </button>
           </div>
 
-          <div style={{ maxWidth: '1000px', margin: '60px auto 0 auto' }}>
+          <div style={{ maxWidth: '1000px', margin: '40px auto 0 auto' }}>
             <h2 style={{ fontSize: '24px', marginBottom: '20px' }}>Featured Live Assets</h2>
             
             {assets.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
-                <p style={{ color: '#94a3b8', fontSize: '16px', margin: 0 }}>Abhi tak koi asset list nahi hua. Pehla asset aap upload karein!</p>
+                <p style={{ color: '#94a3b8', fontSize: '16px', margin: 0 }}>Abhi tak koi asset list nahi hua.</p>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
@@ -192,16 +197,16 @@ export default function Home() {
                   <div key={item.id} style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                       <span style={{ fontSize: '12px', color: '#c084fc', backgroundColor: '#581c87', padding: '2px 8px', borderRadius: '4px' }}>{item.category}</span>
-                      <span style={{ color: '#4ade80', fontWeight: 'bold' }}>${item.price}</span>
+                      <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>${item.price} (BNB)</span>
                     </div>
                     <h3 style={{ margin: '10px 0', fontSize: '18px' }}>{item.title}</h3>
                     <p style={{ color: '#94a3b8', fontSize: '14px', height: '40px', overflow: 'hidden' }}>{item.description}</p>
                     
                     <button 
-                      onClick={handlePaddleBuy}
-                      style={{ width: '100%', marginTop: '15px', backgroundColor: '#22c55e', color: 'black', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}
+                      onClick={() => { setSelectedAsset(item); setPaymentSubmitted(false); }}
+                      style={{ width: '100%', marginTop: '15px', backgroundColor: '#f59e0b', color: 'black', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}
                     >
-                      💳 Buy Asset (${item.price})
+                      ⚡ Buy with BNB (${item.price})
                     </button>
                   </div>
                 ))}
@@ -209,6 +214,89 @@ export default function Home() {
             )}
           </div>
         </>
+      )}
+
+      {/* CRYPTO PAYMENT SCREEN */}
+      {selectedAsset && (
+        <div style={{ maxWidth: '550px', margin: '0 auto', backgroundColor: '#1e293b', padding: '30px', borderRadius: '12px', border: '1px solid #f59e0b' }}>
+          <button 
+            onClick={() => setSelectedAsset(null)}
+            style={{ backgroundColor: '#334155', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', marginBottom: '20px', fontSize: '13px' }}
+          >
+            ← Back to Market
+          </button>
+
+          <h2 style={{ marginTop: 0, color: '#f59e0b' }}>Pay with BNB (BEP-20) 🟡</h2>
+          <p style={{ color: '#94a3b8', fontSize: '14px' }}>
+            Asset: <strong style={{ color: 'white' }}>{selectedAsset.title}</strong><br />
+            Amount: <strong style={{ color: '#4ade80' }}>${selectedAsset.price} USD in BNB</strong>
+          </p>
+
+          <hr style={{ borderColor: '#334155', margin: '20px 0' }} />
+
+          {paymentSubmitted ? (
+            <div style={{ backgroundColor: '#166534', padding: '20px', borderRadius: '8px', color: '#4ade80', textAlign: 'center' }}>
+              <h3>✅ Payment Submitted!</h3>
+              <p style={{ color: '#e2e8f0', fontSize: '14px' }}>Transaction verification under process.</p>
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Direct Download Link:</p>
+              <a 
+                href={selectedAsset.file_url} 
+                target="_blank" 
+                rel="noreferrer"
+                style={{ display: 'inline-block', backgroundColor: '#22c55e', color: 'black', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', textDecoration: 'none', marginTop: '10px' }}
+              >
+                📥 Download Asset Files Now
+              </a>
+            </div>
+          ) : (
+            <div>
+              <label style={{ fontSize: '13px', color: '#cbd5e1', display: 'block', marginBottom: '8px' }}>Send BNB to this BEP-20 Address:</label>
+              
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={MY_BNB_WALLET}
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f59e0b', fontSize: '13px', fontWeight: 'bold' }}
+                />
+                <button 
+                  onClick={copyWallet}
+                  style={{ backgroundColor: '#f59e0b', color: 'black', border: 'none', padding: '0 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                >
+                  {copied ? "Copied! 📋" : "Copy"}
+                </button>
+              </div>
+
+              {/* QR Code Auto Generated */}
+              <div style={{ textAlign: 'center', margin: '20px 0', backgroundColor: 'white', padding: '15px', borderRadius: '8px', display: 'inline-block', width: '100%', boxSizing: 'border-box' }}>
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${MY_BNB_WALLET}`} 
+                  alt="BNB QR Code" 
+                  style={{ width: '160px', height: '160px' }}
+                />
+                <p style={{ color: 'black', fontSize: '12px', margin: '8px 0 0 0', fontWeight: 'bold' }}>Scan via TrustWallet / Binance / MetaMask</p>
+              </div>
+
+              <form onSubmit={handleVerifyCryptoPayment} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
+                <label style={{ fontSize: '13px', color: '#cbd5e1' }}>Transaction Hash (TxID) Enter Karein:</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="0x..." 
+                  value={txHash}
+                  onChange={(e) => setTxHash(e.target.value)}
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: 'white', boxSizing: 'border-box' }}
+                />
+                <button 
+                  type="submit"
+                  style={{ backgroundColor: '#22c55e', color: 'black', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}
+                >
+                  Verify Payment & Get Link 🚀
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
       )}
 
       {/* TAB 2: LOGIN */}
@@ -241,7 +329,6 @@ export default function Home() {
       {/* TAB 3: UPLOAD */}
       {activeTab === "upload" && (
         <div style={{ maxWidth: "600px", margin: "0 auto", backgroundColor: "#1e293b", padding: "30px", borderRadius: "12px", border: "1px solid #334155" }}>
-          
           <h1 style={{ fontSize: "28px", marginTop: "0", marginBottom: "5px" }}>List Your AI Asset 🚀</h1>
           <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "25px" }}>Sell your n8n workflows, AI agents, or Micro-SaaS to buyers globally.</p>
 
