@@ -7,6 +7,10 @@ const supabaseUrl = "https://yfsstuvjvbzoclfagace.supabase.co";
 const supabaseAnonKey = "sb_publishable_mhzPm9OWHWzEJ-smFrjz1Q_RQI8BekP";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// 🔴 APNI PADDLE CLIENT TOKEN YAHAN PASTE KAREIN
+const PADDLE_CLIENT_TOKEN = "live_b9458e0f02ba176bab61d259d14"; 
+const DUMMY_PRICE_ID = "pri_01ky5q757mnnabrfpq4tfdg49q"; // Tumhari Price ID
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState("marketplace");
   const [submitted, setSubmitted] = useState(false);
@@ -22,12 +26,24 @@ export default function Home() {
     price: "",
     description: "",
     fileUrl: "",
-    buyUrl: "",
   });
 
   useEffect(() => {
     fetchAssets();
     checkUser();
+
+    // Inject Paddle v2 SDK
+    const script = document.createElement("script");
+    script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
+    script.async = true;
+    script.onload = () => {
+      if (window.Paddle) {
+        // Agar testing sandbox mode mein kar rahe ho toh ye line active rehne do
+        window.Paddle.Environment.set("sandbox"); 
+        window.Paddle.Initialize({ token: PADDLE_CLIENT_TOKEN });
+      }
+    };
+    document.body.appendChild(script);
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
@@ -91,7 +107,6 @@ export default function Home() {
         category: formData.category,
         price: parseFloat(formData.price),
         file_url: formData.fileUrl,
-        buy_url: formData.buyUrl || formData.fileUrl,
         description: formData.description,
       },
     ]);
@@ -102,6 +117,26 @@ export default function Home() {
     } else {
       setSubmitted(true);
       fetchAssets();
+    }
+  };
+
+  // Professional Paddle Overlay Card Checkout
+  const handlePaddleBuy = (item) => {
+    if (window.Paddle) {
+      window.Paddle.Checkout.open({
+        items: [
+          {
+            priceId: DUMMY_PRICE_ID,
+            quantity: 1,
+          },
+        ],
+        customData: {
+          assetTitle: item.title,
+          assetPrice: item.price,
+        },
+      });
+    } else {
+      alert("Payment engine loading... Please try again in 2 seconds.");
     }
   };
 
@@ -187,11 +222,12 @@ export default function Home() {
                     <h3 style={{ margin: '10px 0', fontSize: '18px' }}>{item.title}</h3>
                     <p style={{ color: '#94a3b8', fontSize: '14px', height: '40px', overflow: 'hidden' }}>{item.description}</p>
                     
-                    <a href={item.buy_url || item.file_url} target="_blank" rel="noopener noreferrer">
-                      <button style={{ width: '100%', marginTop: '15px', backgroundColor: '#22c55e', color: 'black', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}>
-                        💳 Buy Asset (${item.price})
-                      </button>
-                    </a>
+                    <button 
+                      onClick={() => handlePaddleBuy(item)}
+                      style={{ width: '100%', marginTop: '15px', backgroundColor: '#22c55e', color: 'black', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}
+                    >
+                      💳 Buy Asset (${item.price})
+                    </button>
                   </div>
                 ))}
               </div>
@@ -297,19 +333,7 @@ export default function Home() {
               </div>
 
               <div>
-                <label style={{ display: "block", marginBottom: "5px", fontSize: "14px", color: "#cbd5e1" }}>Gumroad / LemonSqueezy Payment Link</label>
-                <input
-                  type="url"
-                  required
-                  placeholder="https://gumroad.com/l/your-product"
-                  value={formData.buyUrl}
-                  onChange={(e) => setFormData({ ...formData, buyUrl: e.target.value })}
-                  style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", boxSizing: "border-box" }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: "block", marginBottom: "5px", fontSize: "14px", color: "#cbd5e1" }}>Deliverable File / Drive Link (Confidential)</label>
+                <label style={{ display: "block", marginBottom: "5px", fontSize: "14px", color: "#cbd5e1" }}>Deliverable File / Drive Link</label>
                 <input
                   type="url"
                   required
