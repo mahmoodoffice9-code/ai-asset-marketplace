@@ -1,10 +1,19 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-export default function Home() {
-  const supabaseUrl = "https://yfsstuvjvbzoclfagace.supabase.co"; 
+// Direct Supabase Integration (No Vercel Env Lag Friction)
+const supabaseUrl = "https://yfsstuvjvbzoclfagace.supabase.co";
 const supabaseAnonKey = "sb_publishable_mhzPm9OWHWzEJ-smFrjz1Q_RQI8BekP";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+export default function Home() {
+  const [activeTab, setActiveTab] = useState("marketplace");
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [assets, setAssets] = useState([]);
+
+  const [formData, setFormData] = useState({
     title: "",
     category: "n8n Workflow",
     price: "",
@@ -12,15 +21,46 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
     fileUrl: "",
   });
 
-  const assets = [
-    { id: 1, title: "Automated LinkedIn Scraper", type: "n8n Workflow", price: "$29" },
-    { id: 2, title: "AI Support Chatbot", type: "AI Agent", price: "$49" },
-    { id: 3, title: "SEO Article Generator", type: "Micro-SaaS", price: "$999" }
-  ];
+  // Database se live products fetch karne ke liye
+  useEffect(() => {
+    fetchAssets();
+  }, []);
 
-  const handleSubmit = (e) => {
+  const fetchAssets = async () => {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("id", { ascending: false });
+
+    if (!error && data) {
+      setAssets(data);
+    } else if (error) {
+      console.log("Error fetching products:", error.message);
+    }
+  };
+
+  // Database mein naya asset save karne ke liye
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitted(true);
+    setLoading(true);
+
+    const { error } = await supabase.from("products").insert([
+      {
+        title: formData.title,
+        category: formData.category,
+        price: parseFloat(formData.price),
+        file_url: formData.fileUrl,
+        description: formData.description,
+      },
+    ]);
+
+    setLoading(false);
+    if (error) {
+      alert("Error saving asset: " + error.message);
+    } else {
+      setSubmitted(true);
+      fetchAssets(); // Refresh list immediately
+    }
   };
 
   return (
@@ -68,21 +108,31 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
           </div>
 
           <div style={{ maxWidth: '1000px', margin: '60px auto 0 auto' }}>
-            <h2 style={{ fontSize: '24px', marginBottom: '20px' }}>Featured Assets</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-              {assets.map((item) => (
-                <div key={item.id} style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '20px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '12px', color: '#c084fc', backgroundColor: '#581c87', padding: '2px 8px', borderRadius: '4px' }}>{item.type}</span>
-                    <span style={{ color: '#4ade80', fontWeight: 'bold' }}>{item.price}</span>
+            <h2 style={{ fontSize: '24px', marginBottom: '20px' }}>Featured Live Assets</h2>
+            
+            {assets.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
+                <p style={{ color: '#94a3b8', fontSize: '16px', margin: 0 }}>Abhi tak koi asset list nahi hua. Pehla asset aap upload karein!</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                {assets.map((item) => (
+                  <div key={item.id} style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '12px', color: '#c084fc', backgroundColor: '#581c87', padding: '2px 8px', borderRadius: '4px' }}>{item.category}</span>
+                      <span style={{ color: '#4ade80', fontWeight: 'bold' }}>${item.price}</span>
+                    </div>
+                    <h3 style={{ margin: '10px 0', fontSize: '18px' }}>{item.title}</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '14px', height: '40px', overflow: 'hidden' }}>{item.description}</p>
+                    <a href={item.file_url} target="_blank" rel="noopener noreferrer">
+                      <button style={{ width: '100%', marginTop: '15px', backgroundColor: '#334155', color: 'white', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer' }}>
+                        View / Buy Asset
+                      </button>
+                    </a>
                   </div>
-                  <h3 style={{ margin: '10px 0', fontSize: '18px' }}>{item.title}</h3>
-                  <button style={{ width: '100%', marginTop: '15px', backgroundColor: '#334155', color: 'white', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer' }}>
-                    View Details
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}
@@ -96,18 +146,17 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
           {submitted ? (
             <div style={{ backgroundColor: "#166534", padding: "20px", borderRadius: "8px", color: "#4ade80", textAlign: "center" }}>
-              <h3>✅ Asset Listed Successfully!</h3>
-              <p style={{ color: "#e2e8f0" }}>Your AI workflow is now live on the marketplace preview.</p>
+              <h3>✅ Asset Successfully Saved to Database!</h3>
+              <p style={{ color: "#e2e8f0" }}>Aapka AI Workflow ab live market mein show ho raha hai.</p>
               <button 
                 onClick={() => { setActiveTab("marketplace"); setSubmitted(false); }}
                 style={{ backgroundColor: "#22c55e", color: "black", border: "none", padding: "10px 20px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", marginTop: "10px" }}
               >
-                Go Back to Marketplace
+                Go to Marketplace
               </button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-              
               <div>
                 <label style={{ display: "block", marginBottom: "5px", fontSize: "14px", color: "#cbd5e1" }}>Asset Title</label>
                 <input
@@ -172,11 +221,11 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
               <button
                 type="submit"
-                style={{ backgroundColor: "#9333ea", color: "white", border: "none", padding: "12px", fontSize: "16px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", marginTop: "10px" }}
+                disabled={loading}
+                style={{ backgroundColor: loading ? "#6b21a8" : "#9333ea", color: "white", border: "none", padding: "12px", fontSize: "16px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", marginTop: "10px" }}
               >
-                Submit Asset
+                {loading ? "Saving to Database..." : "Submit Asset"}
               </button>
-
             </form>
           )}
         </div>
