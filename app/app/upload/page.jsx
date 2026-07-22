@@ -97,12 +97,11 @@ export default function UploadPage() {
               />
             </div>
 
-            <button
-              type="submit"
-              style={{ backgroundColor: "#9333ea", color: "white", border: "none", padding: "12px", fontSize: "16px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", marginTop: "10px" }}
-            >
-              Submit Asset
-            </button>
+           <a href="/upload" style={{ textDecoration: 'none' }}>
+  <button style={{ backgroundColor: '#334155', color: 'white', border: 'none', padding: '12px 24px', fontSize: '16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginLeft: '10px' }}>
+    Sell Your AI Asset
+  </button>
+</a>
 
           </form>
         )}
