@@ -7,9 +7,8 @@ const supabaseUrl = "https://yfsstuvjvbzoclfagace.supabase.co";
 const supabaseAnonKey = "sb_publishable_mhzPm9OWHWzEJ-smFrjz1Q_RQI8BekP";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// 🔴 APNI PADDLE CLIENT TOKEN YAHAN PASTE KAREIN
-const PADDLE_CLIENT_TOKEN = "live_b9458e0f02ba176bab61d259d14"; 
-const DUMMY_PRICE_ID = "pri_01ky5q757mnnabrfpq4tfdg49q"; // Tumhari Price ID
+// 🔴 APNA PADDLE SANDBOX PAYMENT LINK
+const PADDLE_PAYMENT_LINK = "https://sandbox-buy.paddle.com/checkout/custom?price=pri_01ky5q757mnnabrfpq4tfdg49q"; 
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("marketplace");
@@ -31,19 +30,6 @@ export default function Home() {
   useEffect(() => {
     fetchAssets();
     checkUser();
-
-    // Inject Paddle v2 SDK
-    const script = document.createElement("script");
-    script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
-    script.async = true;
-    script.onload = () => {
-      if (window.Paddle) {
-        // Agar testing sandbox mode mein kar rahe ho toh ye line active rehne do
-        window.Paddle.Environment.set("sandbox"); 
-        window.Paddle.Initialize({ token: PADDLE_CLIENT_TOKEN });
-      }
-    };
-    document.body.appendChild(script);
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
@@ -120,23 +106,12 @@ export default function Home() {
     }
   };
 
-  // Professional Paddle Overlay Card Checkout
-  const handlePaddleBuy = (item) => {
-    if (window.Paddle) {
-      window.Paddle.Checkout.open({
-        items: [
-          {
-            priceId: DUMMY_PRICE_ID,
-            quantity: 1,
-          },
-        ],
-        customData: {
-          assetTitle: item.title,
-          assetPrice: item.price,
-        },
-      });
+  // Direct Paddle Checkout Opening
+  const handlePaddleBuy = () => {
+    if (PADDLE_PAYMENT_LINK) {
+      window.open(PADDLE_PAYMENT_LINK, "_blank");
     } else {
-      alert("Payment engine loading... Please try again in 2 seconds.");
+      alert("Please configure PADDLE_PAYMENT_LINK in the code.");
     }
   };
 
@@ -223,7 +198,7 @@ export default function Home() {
                     <p style={{ color: '#94a3b8', fontSize: '14px', height: '40px', overflow: 'hidden' }}>{item.description}</p>
                     
                     <button 
-                      onClick={() => handlePaddleBuy(item)}
+                      onClick={handlePaddleBuy}
                       style={{ width: '100%', marginTop: '15px', backgroundColor: '#22c55e', color: 'black', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}
                     >
                       💳 Buy Asset (${item.price})
