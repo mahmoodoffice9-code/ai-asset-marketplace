@@ -22,13 +22,13 @@ export default function Home() {
     price: "",
     description: "",
     fileUrl: "",
+    buyUrl: "",
   });
 
   useEffect(() => {
     fetchAssets();
     checkUser();
 
-    // Auth listener to catch session live
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
     });
@@ -43,7 +43,6 @@ export default function Home() {
     setUser(user);
   };
 
-  // Magic Link Email Login Handler
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     setAuthMsg("Sending Magic Link...");
@@ -60,7 +59,6 @@ export default function Home() {
     }
   };
 
-  // Logout Handler
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -93,6 +91,7 @@ export default function Home() {
         category: formData.category,
         price: parseFloat(formData.price),
         file_url: formData.fileUrl,
+        buy_url: formData.buyUrl || formData.fileUrl,
         description: formData.description,
       },
     ]);
@@ -127,7 +126,6 @@ export default function Home() {
             + Sell AI Asset
           </button>
 
-          {/* User Auth Display */}
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: '10px', backgroundColor: '#1e293b', padding: '4px 12px', borderRadius: '20px', border: '1px solid #334155' }}>
               <span style={{ fontSize: '13px', color: '#4ade80', fontWeight: 'bold' }}>👤 {user.email.split('@')[0]}</span>
@@ -149,7 +147,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* TAB 1: MARKETPLACE HOMEPAGE */}
+      {/* TAB 1: MARKETPLACE */}
       {activeTab === "marketplace" && (
         <>
           <div style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
@@ -188,9 +186,10 @@ export default function Home() {
                     </div>
                     <h3 style={{ margin: '10px 0', fontSize: '18px' }}>{item.title}</h3>
                     <p style={{ color: '#94a3b8', fontSize: '14px', height: '40px', overflow: 'hidden' }}>{item.description}</p>
-                    <a href={item.file_url} target="_blank" rel="noopener noreferrer">
-                      <button style={{ width: '100%', marginTop: '15px', backgroundColor: '#334155', color: 'white', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer' }}>
-                        View / Buy Asset
+                    
+                    <a href={item.buy_url || item.file_url} target="_blank" rel="noopener noreferrer">
+                      <button style={{ width: '100%', marginTop: '15px', backgroundColor: '#22c55e', color: 'black', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}>
+                        💳 Buy Asset (${item.price})
                       </button>
                     </a>
                   </div>
@@ -201,7 +200,7 @@ export default function Home() {
         </>
       )}
 
-      {/* TAB 2: LOGIN WITH MAGIC LINK */}
+      {/* TAB 2: LOGIN */}
       {activeTab === "login" && (
         <div style={{ maxWidth: "450px", margin: "0 auto", backgroundColor: "#1e293b", padding: "30px", borderRadius: "12px", border: "1px solid #334155", textAlign: "center" }}>
           <h2 style={{ marginTop: 0 }}>Instant Login / Sign Up 🔑</h2>
@@ -228,7 +227,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* TAB 3: SELLER UPLOAD FORM */}
+      {/* TAB 3: UPLOAD */}
       {activeTab === "upload" && (
         <div style={{ maxWidth: "600px", margin: "0 auto", backgroundColor: "#1e293b", padding: "30px", borderRadius: "12px", border: "1px solid #334155" }}>
           
@@ -298,7 +297,19 @@ export default function Home() {
               </div>
 
               <div>
-                <label style={{ display: "block", marginBottom: "5px", fontSize: "14px", color: "#cbd5e1" }}>Asset / Drive / Github Link</label>
+                <label style={{ display: "block", marginBottom: "5px", fontSize: "14px", color: "#cbd5e1" }}>Gumroad / LemonSqueezy Payment Link</label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://gumroad.com/l/your-product"
+                  value={formData.buyUrl}
+                  onChange={(e) => setFormData({ ...formData, buyUrl: e.target.value })}
+                  style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", boxSizing: "border-box" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", marginBottom: "5px", fontSize: "14px", color: "#cbd5e1" }}>Deliverable File / Drive Link (Confidential)</label>
                 <input
                   type="url"
                   required
