@@ -2,10 +2,9 @@
 import { useState } from "react";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState("marketplace");
-  const [submitted, setSubmitted] = useState(false);
-
-  const [formData, setFormData] = useState({
+  const supabaseUrl = "https://yfsstuvjvbzoclfagace.supabase.co"; 
+const supabaseAnonKey = "sb_publishable_mhzPm9OWHWzEJ-smFrjz1Q_RQI8BekP";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
     title: "",
     category: "n8n Workflow",
     price: "",
