@@ -13,6 +13,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [assets, setAssets] = useState([]);
   const [user, setUser] = useState(null);
+  const [email, setEmail] = useState("");
+  const [authMsg, setAuthMsg] = useState("");
 
   const [formData, setFormData] = useState({
     title: "",
@@ -26,7 +28,7 @@ export default function Home() {
     fetchAssets();
     checkUser();
 
-    // Listen for Auth changes
+    // Auth listener to catch session live
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
     });
@@ -41,21 +43,28 @@ export default function Home() {
     setUser(user);
   };
 
-  // Google Login Handler
-  const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
+  // Magic Link Email Login Handler
+  const handleEmailLogin = async (e) => {
+    e.preventDefault();
+    setAuthMsg("Sending Magic Link...");
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email,
       options: {
-        redirectTo: window.location.origin,
+        emailRedirectTo: window.location.origin,
       },
     });
-    if (error) alert("Login Error: " + error.message);
+    if (error) {
+      setAuthMsg("Error: " + error.message);
+    } else {
+      setAuthMsg("✅ Check your email! Magic link sent.");
+    }
   };
 
   // Logout Handler
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setAuthMsg("");
   };
 
   const fetchAssets = async () => {
@@ -72,7 +81,7 @@ export default function Home() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user) {
-      alert("Pehle Google se Login karein!");
+      alert("Pehle Email se Login karein!");
       return;
     }
 
@@ -118,10 +127,10 @@ export default function Home() {
             + Sell AI Asset
           </button>
 
-          {/* Google Auth Buttons */}
+          {/* User Auth Display */}
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: '10px', backgroundColor: '#1e293b', padding: '4px 12px', borderRadius: '20px', border: '1px solid #334155' }}>
-              <span style={{ fontSize: '13px', color: '#cbd5e1' }}>{user.email.split('@')[0]}</span>
+              <span style={{ fontSize: '13px', color: '#4ade80', fontWeight: 'bold' }}>👤 {user.email.split('@')[0]}</span>
               <button 
                 onClick={handleLogout}
                 style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
@@ -131,10 +140,10 @@ export default function Home() {
             </div>
           ) : (
             <button 
-              onClick={handleGoogleLogin}
-              style={{ backgroundColor: '#ffffff', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginLeft: '10px' }}
+              onClick={() => setActiveTab("login")}
+              style={{ backgroundColor: '#38bdf8', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginLeft: '10px' }}
             >
-              Sign in with Google 🌐
+              Login / Sign Up 🔑
             </button>
           )}
         </div>
@@ -192,7 +201,34 @@ export default function Home() {
         </>
       )}
 
-      {/* TAB 2: SELLER UPLOAD FORM */}
+      {/* TAB 2: LOGIN WITH MAGIC LINK */}
+      {activeTab === "login" && (
+        <div style={{ maxWidth: "450px", margin: "0 auto", backgroundColor: "#1e293b", padding: "30px", borderRadius: "12px", border: "1px solid #334155", textAlign: "center" }}>
+          <h2 style={{ marginTop: 0 }}>Instant Login / Sign Up 🔑</h2>
+          <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "20px" }}>Apna Email daalo, hum direct Magic Link bhejenge!</p>
+          
+          <form onSubmit={handleEmailLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            <input 
+              type="email" 
+              required 
+              placeholder="Apna Email likhein..." 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{ width: "100%", padding: "12px", borderRadius: "6px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", boxSizing: "border-box" }}
+            />
+            <button 
+              type="submit" 
+              style={{ backgroundColor: "#38bdf8", color: "#0f172a", border: "none", padding: "12px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "16px" }}
+            >
+              Send Magic Link ✨
+            </button>
+          </form>
+
+          {authMsg && <p style={{ marginTop: "15px", fontSize: "14px", color: authMsg.includes("✅") ? "#4ade80" : "#f87171" }}>{authMsg}</p>}
+        </div>
+      )}
+
+      {/* TAB 3: SELLER UPLOAD FORM */}
       {activeTab === "upload" && (
         <div style={{ maxWidth: "600px", margin: "0 auto", backgroundColor: "#1e293b", padding: "30px", borderRadius: "12px", border: "1px solid #334155" }}>
           
@@ -200,14 +236,14 @@ export default function Home() {
           <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "25px" }}>Sell your n8n workflows, AI agents, or Micro-SaaS to buyers globally.</p>
 
           {!user ? (
-            <div style={{ textAlign: "center", padding: "30px", backgroundColor: "#0f172a", borderRadius: "8px", border: "1px border #334155" }}>
+            <div style={{ textAlign: "center", padding: "30px", backgroundColor: "#0f172a", borderRadius: "8px", border: "1px solid #334155" }}>
               <h3 style={{ marginTop: 0 }}>🔒 Login Required</h3>
-              <p style={{ color: "#94a3b8" }}>Asset list karne ke liye pehle Google se Sign in karein.</p>
+              <p style={{ color: "#94a3b8" }}>Asset list karne ke liye pehle Login karein.</p>
               <button 
-                onClick={handleGoogleLogin}
-                style={{ backgroundColor: "#ffffff", color: "#0f172a", border: "none", padding: "10px 20px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", marginTop: "10px" }}
+                onClick={() => setActiveTab("login")}
+                style={{ backgroundColor: "#38bdf8", color: "#0f172a", border: "none", padding: "10px 20px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", marginTop: "10px" }}
               >
-                Sign in with Google 🌐
+                Login / Sign Up 🔑
               </button>
             </div>
           ) : submitted ? (
