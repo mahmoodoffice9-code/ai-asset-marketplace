@@ -7,6 +7,9 @@ const supabaseUrl = "https://yfsstuvjvbzoclfagace.supabase.co";
 const supabaseAnonKey = "sb_publishable_mhzPm9OWHWzEJ-smFrjz1Q_RQI8BekP";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// 👑 APNA ADMIN EMAIL YAHAN LIKHEIN (Is email se login par Admin Panel khulega)
+const ADMIN_EMAIL = "mahmoodoffice9@gmail.com"; 
+
 // 🟡 APNA BNB (BEP-20) WALLET ADDRESS YAHAN DALEIN
 const MY_BNB_WALLET = "0x4B4622a5E6a7E71fB51925B6093b90CEEce6F71e"; 
 
@@ -84,6 +87,18 @@ export default function Home() {
     }
   };
 
+  const handleDeleteAsset = async (id) => {
+    if (!confirm("Are you sure you want to delete this asset?")) return;
+    
+    const { error } = await supabase.from("products").delete().eq("id", id);
+    if (error) {
+      alert("Error deleting asset: " + error.message);
+    } else {
+      alert("Asset deleted successfully! 🗑️");
+      fetchAssets();
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user) {
@@ -127,6 +142,8 @@ export default function Home() {
     setPaymentSubmitted(true);
   };
 
+  const isAdmin = user && user.email === ADMIN_EMAIL;
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: 'white', padding: '40px 20px', fontFamily: 'sans-serif' }}>
       
@@ -147,6 +164,16 @@ export default function Home() {
           >
             + Sell AI Asset
           </button>
+
+          {/* 👑 ADMIN TAB ONLY FOR ADMIN */}
+          {isAdmin && (
+            <button 
+              onClick={() => setActiveTab("admin")}
+              style={{ backgroundColor: activeTab === "admin" ? "#ef4444" : "#b91c1c", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", border: '1px solid #f87171' }}
+            >
+              👑 Admin Panel
+            </button>
+          )}
 
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: '10px', backgroundColor: '#1e293b', padding: '4px 12px', borderRadius: '20px', border: '1px solid #334155' }}>
@@ -267,7 +294,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* QR Code Auto Generated */}
               <div style={{ textAlign: 'center', margin: '20px 0', backgroundColor: 'white', padding: '15px', borderRadius: '8px', display: 'inline-block', width: '100%', boxSizing: 'border-box' }}>
                 <img 
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${MY_BNB_WALLET}`} 
@@ -296,6 +322,49 @@ export default function Home() {
               </form>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 👑 TAB 4: ADMIN PANEL */}
+      {activeTab === "admin" && isAdmin && (
+        <div style={{ maxWidth: '900px', margin: '0 auto', backgroundColor: '#1e293b', padding: '30px', borderRadius: '12px', border: '1px solid #ef4444' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h1 style={{ fontSize: '24px', margin: 0, color: '#f87171' }}>👑 Master Admin Panel</h1>
+            <span style={{ backgroundColor: '#991b1b', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
+              Logged as: {user.email}
+            </span>
+          </div>
+
+          <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '25px' }}>
+            Yahan se aap tamam listed assets ko manage kar sakte hain, test/fake listings ko delete kar sakte hain.
+          </p>
+
+          <h3 style={{ borderBottom: '1px solid #334155', paddingBottom: '10px', color: '#cbd5e1' }}>
+            All Listed Products ({assets.length})
+          </h3>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '15px' }}>
+            {assets.map((item) => (
+              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155' }}>
+                <div>
+                  <h4 style={{ margin: '0 0 5px 0', fontSize: '16px', color: 'white' }}>{item.title}</h4>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>
+                    Category: <strong style={{ color: '#c084fc' }}>{item.category}</strong> | Price: <strong style={{ color: '#4ade80' }}>${item.price}</strong>
+                  </p>
+                  <a href={item.file_url} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#38bdf8', textDecoration: 'none' }}>
+                    🔗 File Link: {item.file_url}
+                  </a>
+                </div>
+
+                <button 
+                  onClick={() => handleDeleteAsset(item.id)}
+                  style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  🗑️ Delete
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
