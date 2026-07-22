@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// Direct Supabase Integration (No Vercel Env Lag Friction)
+// Supabase Direct Setup
 const supabaseUrl = "https://yfsstuvjvbzoclfagace.supabase.co";
 const supabaseAnonKey = "sb_publishable_mhzPm9OWHWzEJ-smFrjz1Q_RQI8BekP";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -12,6 +12,7 @@ export default function Home() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [assets, setAssets] = useState([]);
+  const [user, setUser] = useState(null);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -21,10 +22,41 @@ export default function Home() {
     fileUrl: "",
   });
 
-  // Database se live products fetch karne ke liye
   useEffect(() => {
     fetchAssets();
+    checkUser();
+
+    // Listen for Auth changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
+
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+  };
+
+  // Google Login Handler
+  const handleGoogleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) alert("Login Error: " + error.message);
+  };
+
+  // Logout Handler
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
   const fetchAssets = async () => {
     const { data, error } = await supabase
@@ -34,14 +66,16 @@ export default function Home() {
 
     if (!error && data) {
       setAssets(data);
-    } else if (error) {
-      console.log("Error fetching products:", error.message);
     }
   };
 
-  // Database mein naya asset save karne ke liye
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!user) {
+      alert("Pehle Google se Login karein!");
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.from("products").insert([
@@ -59,7 +93,7 @@ export default function Home() {
       alert("Error saving asset: " + error.message);
     } else {
       setSubmitted(true);
-      fetchAssets(); // Refresh list immediately
+      fetchAssets();
     }
   };
 
@@ -67,12 +101,13 @@ export default function Home() {
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: 'white', padding: '40px 20px', fontFamily: 'sans-serif' }}>
       
       {/* Header / Navbar */}
-      <div style={{ maxWidth: '1000px', margin: '0 auto 40px auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ maxWidth: '1000px', margin: '0 auto 40px auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, color: '#a855f7' }}>AI Asset Hub 🚀</h2>
-        <div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button 
             onClick={() => { setActiveTab("marketplace"); setSubmitted(false); }}
-            style={{ backgroundColor: activeTab === "marketplace" ? "#9333ea" : "transparent", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", marginRight: "10px", fontWeight: "bold" }}
+            style={{ backgroundColor: activeTab === "marketplace" ? "#9333ea" : "transparent", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}
           >
             Marketplace
           </button>
@@ -82,6 +117,26 @@ export default function Home() {
           >
             + Sell AI Asset
           </button>
+
+          {/* Google Auth Buttons */}
+          {user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: '10px', backgroundColor: '#1e293b', padding: '4px 12px', borderRadius: '20px', border: '1px solid #334155' }}>
+              <span style={{ fontSize: '13px', color: '#cbd5e1' }}>{user.email.split('@')[0]}</span>
+              <button 
+                onClick={handleLogout}
+                style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={handleGoogleLogin}
+              style={{ backgroundColor: '#ffffff', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginLeft: '10px' }}
+            >
+              Sign in with Google 🌐
+            </button>
+          )}
         </div>
       </div>
 
@@ -144,7 +199,18 @@ export default function Home() {
           <h1 style={{ fontSize: "28px", marginTop: "0", marginBottom: "5px" }}>List Your AI Asset 🚀</h1>
           <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "25px" }}>Sell your n8n workflows, AI agents, or Micro-SaaS to buyers globally.</p>
 
-          {submitted ? (
+          {!user ? (
+            <div style={{ textAlign: "center", padding: "30px", backgroundColor: "#0f172a", borderRadius: "8px", border: "1px border #334155" }}>
+              <h3 style={{ marginTop: 0 }}>🔒 Login Required</h3>
+              <p style={{ color: "#94a3b8" }}>Asset list karne ke liye pehle Google se Sign in karein.</p>
+              <button 
+                onClick={handleGoogleLogin}
+                style={{ backgroundColor: "#ffffff", color: "#0f172a", border: "none", padding: "10px 20px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", marginTop: "10px" }}
+              >
+                Sign in with Google 🌐
+              </button>
+            </div>
+          ) : submitted ? (
             <div style={{ backgroundColor: "#166534", padding: "20px", borderRadius: "8px", color: "#4ade80", textAlign: "center" }}>
               <h3>✅ Asset Successfully Saved to Database!</h3>
               <p style={{ color: "#e2e8f0" }}>Aapka AI Workflow ab live market mein show ho raha hai.</p>
