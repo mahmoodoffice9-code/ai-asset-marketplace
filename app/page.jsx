@@ -10,13 +10,14 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // 👑 APNA ADMIN EMAIL YAHAN LIKHEIN
 const ADMIN_EMAIL = "your-admin-email@gmail.com"; 
 
-// 🟡 APNA BNB (BEP-20) WALLET ADDRESS YAHAN DALEIN
-const MY_BNB_WALLET = "0xYOUR_BNB_WALLET_ADDRESS_HERE"; 
+// 💳 NOWPayments API Key Integrated
+const NOWPAYMENTS_API_KEY = "6CWDKGC-RMHMG9K-Q9HB8F3-YG0SCAQ";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("marketplace");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [assets, setAssets] = useState([]);
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState("");
@@ -28,9 +29,9 @@ export default function Home() {
 
   // Crypto Payment Modal State
   const [selectedAsset, setSelectedAsset] = useState(null);
-  const [txHash, setTxHash] = useState("");
+  const [paymentData, setPaymentData] = useState(null);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [creatingPayment, setCreatingPayment] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -131,19 +132,73 @@ export default function Home() {
     }
   };
 
-  const copyWallet = () => {
-    navigator.clipboard.writeText(MY_BNB_WALLET);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // 🚀 NOWPAYMENTS AUTOMATIC INVOICE GENERATOR
+  const createNowPayment = async (asset) => {
+    setSelectedAsset(asset);
+    setPaymentSubmitted(false);
+    setPaymentData(null);
+    setCreatingPayment(true);
+
+    try {
+      const res = await fetch("https://api.nowpayments.io/v1/payment", {
+        method: "POST",
+        headers: {
+          "x-api-key": NOWPAYMENTS_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          price_amount: asset.price,
+          price_currency: "usd",
+          pay_currency: "bnbbsc", // BNB on BSC network
+          order_id: `ASSET_${asset.id}_${Date.now()}`,
+          order_description: asset.title,
+        }),
+      });
+
+      const data = await res.json();
+      setCreatingPayment(false);
+
+      if (data && data.pay_address) {
+        setPaymentData(data);
+      } else {
+        alert("Payment address generate nahi ho saka. Make sure NOWPayments account settings mein Payout Wallet Address set ho!");
+      }
+    } catch (err) {
+      setCreatingPayment(false);
+      alert("NOWPayments API Error! Check network connection.");
+    }
   };
 
-  const handleVerifyCryptoPayment = (e) => {
-    e.preventDefault();
-    if (!txHash) {
-      alert("TxHash/TxID enter karein!");
-      return;
+  // 🛡️ CHECK PAYMENT STATUS VIA NOWPAYMENTS REAL-TIME API
+  const verifyNowPaymentStatus = async () => {
+    if (!paymentData || !paymentData.payment_id) return;
+
+    setVerifyingPayment(true);
+
+    try {
+      const res = await fetch(
+        `https://api.nowpayments.io/v1/payment/${paymentData.payment_id}`,
+        {
+          headers: {
+            "x-api-key": NOWPAYMENTS_API_KEY,
+          },
+        }
+      );
+      const data = await res.json();
+      setVerifyingPayment(false);
+
+      // NOWPayments statuses: finished, confirmed, waiting, failed
+      if (data.payment_status === "finished" || data.payment_status === "confirmed") {
+        setPaymentSubmitted(true);
+      } else if (data.payment_status === "waiting" || data.payment_status === "sending") {
+        alert("⏳ Payment abhi pending ya process mein hai. Blockchain confirm hone tak thoda wait karke dobara check karein!");
+      } else {
+        alert(`❌ Status: ${data.payment_status.toUpperCase()}. Abhi tak payment receive nahi hui ya expired ho gayi hai.`);
+      }
+    } catch (err) {
+      setVerifyingPayment(false);
+      alert("Status check karne mein error aaya. Dobara try karein.");
     }
-    setPaymentSubmitted(true);
   };
 
   const isAdmin = user && user.email === ADMIN_EMAIL;
@@ -212,13 +267,13 @@ export default function Home() {
         <>
           <div style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
             <span style={{ backgroundColor: '#f59e0b', color: 'black', padding: '6px 16px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold' }}>
-              🟡 BNB / Crypto Instant Checkout Active
+              ⚡ NOWPayments Verified Crypto Checkout
             </span>
             <h1 style={{ fontSize: '48px', marginTop: '20px', marginBottom: '10px' }}>
               Buy & Sell <span style={{ color: '#a855f7' }}>AI Agents & Workflows</span>
             </h1>
             <p style={{ color: '#94a3b8', fontSize: '18px', marginBottom: '30px' }}>
-              Pay via BNB (BEP-20) for instant, fee-free direct access.
+              Pay via BNB (BEP-20) with automated real-time blockchain verification.
             </p>
 
             {/* 🔍 SEARCH BAR & CATEGORY FILTERS */}
@@ -265,13 +320,13 @@ export default function Home() {
                   <div key={item.id} style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                       <span style={{ fontSize: '12px', color: '#c084fc', backgroundColor: '#581c87', padding: '2px 8px', borderRadius: '4px' }}>{item.category}</span>
-                      <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>${item.price} (BNB)</span>
+                      <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>${item.price} USD</span>
                     </div>
                     <h3 style={{ margin: '10px 0', fontSize: '18px' }}>{item.title}</h3>
                     <p style={{ color: '#94a3b8', fontSize: '14px', height: '40px', overflow: 'hidden' }}>{item.description}</p>
                     
                     <button 
-                      onClick={() => { setSelectedAsset(item); setPaymentSubmitted(false); }}
+                      onClick={() => createNowPayment(item)}
                       style={{ width: '100%', marginTop: '15px', backgroundColor: '#f59e0b', color: 'black', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}
                     >
                       ⚡ Buy with BNB (${item.price})
@@ -284,7 +339,7 @@ export default function Home() {
         </>
       )}
 
-      {/* CRYPTO PAYMENT SCREEN */}
+      {/* NOWPAYMENTS AUTOMATED CHECKOUT MODAL */}
       {selectedAsset && (
         <div style={{ maxWidth: '550px', margin: '0 auto', backgroundColor: '#1e293b', padding: '30px', borderRadius: '12px', border: '1px solid #f59e0b' }}>
           <button 
@@ -294,19 +349,22 @@ export default function Home() {
             ← Back to Market
           </button>
 
-          <h2 style={{ marginTop: 0, color: '#f59e0b' }}>Pay with BNB (BEP-20) 🟡</h2>
+          <h2 style={{ marginTop: 0, color: '#f59e0b' }}>NOWPayments Instant Checkout 🟡</h2>
           <p style={{ color: '#94a3b8', fontSize: '14px' }}>
             Asset: <strong style={{ color: 'white' }}>{selectedAsset.title}</strong><br />
-            Amount: <strong style={{ color: '#4ade80' }}>${selectedAsset.price} USD in BNB</strong>
+            Amount: <strong style={{ color: '#4ade80' }}>${selectedAsset.price} USD</strong>
           </p>
 
           <hr style={{ borderColor: '#334155', margin: '20px 0' }} />
 
-          {paymentSubmitted ? (
+          {creatingPayment ? (
+            <div style={{ textAlign: 'center', padding: '30px' }}>
+              <p style={{ color: '#f59e0b', fontSize: '16px', fontWeight: 'bold' }}>🔄 Generating Real-Time BNB Payment Address...</p>
+            </div>
+          ) : paymentSubmitted ? (
             <div style={{ backgroundColor: '#166534', padding: '20px', borderRadius: '8px', color: '#4ade80', textAlign: 'center' }}>
-              <h3>✅ Payment Submitted!</h3>
-              <p style={{ color: '#e2e8f0', fontSize: '14px' }}>Transaction verification under process.</p>
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Direct Download Link:</p>
+              <h3>✅ Payment Verified on Blockchain!</h3>
+              <p style={{ color: '#e2e8f0', fontSize: '14px' }}>NOWPayments verified your transaction.</p>
               <a 
                 href={selectedAsset.file_url} 
                 target="_blank" 
@@ -316,53 +374,42 @@ export default function Home() {
                 📥 Download Asset Files Now
               </a>
             </div>
-          ) : (
+          ) : paymentData ? (
             <div>
-              <label style={{ fontSize: '13px', color: '#cbd5e1', display: 'block', marginBottom: '8px' }}>Send BNB to this BEP-20 Address:</label>
-              
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
-                <input 
-                  type="text" 
-                  readOnly 
-                  value={MY_BNB_WALLET}
-                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f59e0b', fontSize: '13px', fontWeight: 'bold' }}
-                />
-                <button 
-                  onClick={copyWallet}
-                  style={{ backgroundColor: '#f59e0b', color: 'black', border: 'none', padding: '0 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap' }}
-                >
-                  {copied ? "Copied! 📋" : "Copy"}
-                </button>
+              <div style={{ backgroundColor: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155', marginBottom: '15px' }}>
+                <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#94a3b8' }}>Exact Amount to Send:</p>
+                <p style={{ margin: 0, fontSize: '18px', color: '#4ade80', fontWeight: 'bold' }}>
+                  {paymentData.pay_amount} BNB
+                </p>
               </div>
 
-              <div style={{ textAlign: 'center', margin: '20px 0', backgroundColor: 'white', padding: '15px', borderRadius: '8px', display: 'inline-block', width: '100%', boxSizing: 'border-box' }}>
+              <label style={{ fontSize: '13px', color: '#cbd5e1', display: 'block', marginBottom: '8px' }}>Send exact BNB to this NOWPayments Address:</label>
+              
+              <input 
+                type="text" 
+                readOnly 
+                value={paymentData.pay_address}
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f59e0b', fontSize: '12px', fontWeight: 'bold', boxSizing: 'border-box', marginBottom: '15px' }}
+              />
+
+              <div style={{ textAlign: 'center', margin: '10px 0', backgroundColor: 'white', padding: '15px', borderRadius: '8px' }}>
                 <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${MY_BNB_WALLET}`} 
-                  alt="BNB QR Code" 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${paymentData.pay_address}`} 
+                  alt="Payment QR" 
                   style={{ width: '160px', height: '160px' }}
                 />
-                <p style={{ color: 'black', fontSize: '12px', margin: '8px 0 0 0', fontWeight: 'bold' }}>Scan via TrustWallet / Binance / MetaMask</p>
+                <p style={{ color: 'black', fontSize: '12px', margin: '8px 0 0 0', fontWeight: 'bold' }}>Scan with TrustWallet / Binance / MetaMask</p>
               </div>
 
-              <form onSubmit={handleVerifyCryptoPayment} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
-                <label style={{ fontSize: '13px', color: '#cbd5e1' }}>Transaction Hash (TxID) Enter Karein:</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="0x..." 
-                  value={txHash}
-                  onChange={(e) => setTxHash(e.target.value)}
-                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: 'white', boxSizing: 'border-box' }}
-                />
-                <button 
-                  type="submit"
-                  style={{ backgroundColor: '#22c55e', color: 'black', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}
-                >
-                  Verify Payment & Get Link 🚀
-                </button>
-              </form>
+              <button 
+                onClick={verifyNowPaymentStatus}
+                disabled={verifyingPayment}
+                style={{ width: '100%', backgroundColor: verifyingPayment ? "#ca8a04" : "#22c55e", color: "black", border: "none", padding: "12px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "15px", marginTop: "15px" }}
+              >
+                {verifyingPayment ? "Checking NOWPayments Network..." : "I Have Paid — Check Status 🚀"}
+              </button>
             </div>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -377,7 +424,7 @@ export default function Home() {
           </div>
 
           <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '25px' }}>
-            Yahan se aap tamam listed assets ko manage kar sakte hain, test/fake listings ko delete kar sakte hain.
+            Yahan se aap tamam listed assets ko manage kar sakte hain aur test/fake listings ko delete kar sakte hain.
           </p>
 
           <h3 style={{ borderBottom: '1px solid #334155', paddingBottom: '10px', color: '#cbd5e1' }}>
@@ -390,7 +437,7 @@ export default function Home() {
                 <div>
                   <h4 style={{ margin: '0 0 5px 0', fontSize: '16px', color: 'white' }}>{item.title}</h4>
                   <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>
-                    Category: <strong style={{ color: '#c084fc' }}>{item.category}</strong> | Price: <strong style={{ color: '#4ade80' }}>${item.price}</strong>
+                    Category: <strong style={{ color: '#c084fc' }}>{item.category}</strong> | Price: <strong style={{ color: '#4ade80' }}>${item.price} USD</strong>
                   </p>
                   <a href={item.file_url} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#38bdf8', textDecoration: 'none' }}>
                     🔗 File Link: {item.file_url}
