@@ -7,11 +7,11 @@ const supabaseUrl = "https://yfsstuvjvbzoclfagace.supabase.co";
 const supabaseAnonKey = "sb_publishable_mhzPm9OWHWzEJ-smFrjz1Q_RQI8BekP";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// 👑 APNA ADMIN EMAIL YAHAN LIKHEIN (Is email se login par Admin Panel khulega)
-const ADMIN_EMAIL = "mahmoodoffice9@gmail.com"; 
+// 👑 APNA ADMIN EMAIL YAHAN LIKHEIN
+const ADMIN_EMAIL = "your-admin-email@gmail.com"; 
 
 // 🟡 APNA BNB (BEP-20) WALLET ADDRESS YAHAN DALEIN
-const MY_BNB_WALLET = "0x4B4622a5E6a7E71fB51925B6093b90CEEce6F71e"; 
+const MY_BNB_WALLET = "0xYOUR_BNB_WALLET_ADDRESS_HERE"; 
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("marketplace");
@@ -21,6 +21,10 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState("");
   const [authMsg, setAuthMsg] = useState("");
+
+  // Search & Filter States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
   // Crypto Payment Modal State
   const [selectedAsset, setSelectedAsset] = useState(null);
@@ -144,6 +148,14 @@ export default function Home() {
 
   const isAdmin = user && user.email === ADMIN_EMAIL;
 
+  // Filter Logic
+  const filteredAssets = assets.filter((item) => {
+    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          item.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: 'white', padding: '40px 20px', fontFamily: 'sans-serif' }}>
       
@@ -165,7 +177,6 @@ export default function Home() {
             + Sell AI Asset
           </button>
 
-          {/* 👑 ADMIN TAB ONLY FOR ADMIN */}
           {isAdmin && (
             <button 
               onClick={() => setActiveTab("admin")}
@@ -209,18 +220,48 @@ export default function Home() {
             <p style={{ color: '#94a3b8', fontSize: '18px', marginBottom: '30px' }}>
               Pay via BNB (BEP-20) for instant, fee-free direct access.
             </p>
+
+            {/* 🔍 SEARCH BAR & CATEGORY FILTERS */}
+            <div style={{ maxWidth: '600px', margin: '0 auto 30px auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <input 
+                type="text"
+                placeholder="🔍 Search workflows, agents, or prompts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ width: '100%', padding: '14px 20px', borderRadius: '30px', border: '1px solid #334155', backgroundColor: '#1e293b', color: 'white', fontSize: '15px', outline: 'none', boxSizing: 'border-box' }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {["All", "n8n Workflow", "Make.com Flow", "AI Agent", "Micro-SaaS"].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    style={{
+                      backgroundColor: selectedCategory === cat ? "#a855f7" : "#1e293b",
+                      color: "white",
+                      border: selectedCategory === cat ? "none" : "1px solid #334155",
+                      padding: "6px 14px",
+                      borderRadius: "20px",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      fontWeight: selectedCategory === cat ? "bold" : "normal"
+                    }}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div style={{ maxWidth: '1000px', margin: '40px auto 0 auto' }}>
-            <h2 style={{ fontSize: '24px', marginBottom: '20px' }}>Featured Live Assets</h2>
-            
-            {assets.length === 0 ? (
+          <div style={{ maxWidth: '1000px', margin: '20px auto 0 auto' }}>
+            {filteredAssets.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
-                <p style={{ color: '#94a3b8', fontSize: '16px', margin: 0 }}>Abhi tak koi asset list nahi hua.</p>
+                <p style={{ color: '#94a3b8', fontSize: '16px', margin: 0 }}>Koi matching asset nahi mila.</p>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-                {assets.map((item) => (
+                {filteredAssets.map((item) => (
                   <div key={item.id} style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                       <span style={{ fontSize: '12px', color: '#c084fc', backgroundColor: '#581c87', padding: '2px 8px', borderRadius: '4px' }}>{item.category}</span>
