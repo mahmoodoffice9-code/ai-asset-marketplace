@@ -7,7 +7,7 @@ const supabaseUrl = "https://yfsstuvjvbzoclfagace.supabase.co";
 const supabaseAnonKey = "sb_publishable_mhzPm9OWHWzEJ-smFrjz1Q_RQI8BekP";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// 👑 ADMIN EMAIL (Always in lowercase)
+// 👑 ADMIN EMAIL
 const ADMIN_EMAIL = "mahmoodoffice9@gmail.com"; 
 
 // 💳 NOWPayments API Key
@@ -86,10 +86,10 @@ export default function Home() {
     }
   };
 
-  // 🚀 DIRECT INSTANT PASSWORD LOGIN (NO MAGIC LINK CHAKKAR)
+  // Login Handler
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
-    setAuthMsg("Logging in instantly...");
+    setAuthMsg("Logging in...");
     
     const cleanEmail = email.trim().toLowerCase();
 
@@ -106,7 +106,7 @@ export default function Home() {
       
       if (cleanEmail === ADMIN_EMAIL) {
         fetchAllAssetsAdmin();
-        setActiveTab("admin"); // Direct Admin Panel par le jao
+        setActiveTab("admin");
       } else {
         setActiveTab("marketplace");
       }
@@ -120,20 +120,22 @@ export default function Home() {
     setAuthMsg("");
   };
 
-  // Fetch only APPROVED assets for public marketplace
+  // 🔥 FETCH ONLY APPROVED ASSETS (Case-insensitive match & cache-busting)
   const fetchApprovedAssets = async () => {
     const { data, error } = await supabase
       .from("products")
       .select("*")
-      .eq("status", "approved")
+      .ilike("status", "approved")
       .order("id", { ascending: false });
 
     if (!error && data) {
       setAssets(data);
+    } else if (error) {
+      console.error("Error fetching approved assets:", error.message);
     }
   };
 
-  // Fetch ALL assets for Admin approval dashboard
+  // Fetch ALL assets for Admin
   const fetchAllAssetsAdmin = async () => {
     const { data, error } = await supabase
       .from("products")
@@ -145,7 +147,7 @@ export default function Home() {
     }
   };
 
-  // Fetch specific Seller's uploaded assets
+  // Fetch Seller's Assets
   const fetchUserAssets = async (userEmail) => {
     const { data, error } = await supabase
       .from("products")
@@ -158,19 +160,24 @@ export default function Home() {
     }
   };
 
-  // Admin Approve / Reject Handler
+  // 👑 ADMIN APPROVE / REJECT HANDLER (FIXED FOR INSTANT PUBLISH)
   const handleUpdateStatus = async (id, newStatus) => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("products")
-      .update({ status: newStatus })
-      .eq("id", id);
+      .update({ status: newStatus.toLowerCase() })
+      .eq("id", id)
+      .select();
 
     if (error) {
       alert("Error updating status: " + error.message);
     } else {
-      alert(`Asset status changed to ${newStatus.toUpperCase()}! 🚀`);
-      fetchAllAssetsAdmin();
-      fetchApprovedAssets();
+      alert(`✅ Asset is now ${newStatus.toUpperCase()} and live on Marketplace! 🔥`);
+      // Refresh both states immediately
+      await fetchAllAssetsAdmin();
+      await fetchApprovedAssets();
+      if (user) {
+        fetchUserAssets(user.email.trim().toLowerCase());
+      }
     }
   };
 
@@ -217,7 +224,7 @@ export default function Home() {
     }
   };
 
-  // NOWPAYMENTS AUTOMATIC INVOICE GENERATOR
+  // NOWPAYMENTS API
   const createNowPayment = async (asset) => {
     setSelectedAsset(asset);
     setPaymentSubmitted(false);
@@ -246,11 +253,11 @@ export default function Home() {
       if (data && data.pay_address) {
         setPaymentData(data);
       } else {
-        alert("Payment address generation failed. Ensure payout wallet is configured!");
+        alert("Payment address generation failed.");
       }
     } catch (err) {
       setCreatingPayment(false);
-      alert("NOWPayments API Error! Check connection.");
+      alert("NOWPayments API Error!");
     }
   };
 
@@ -293,7 +300,7 @@ export default function Home() {
       } else if (data.payment_status === "waiting" || data.payment_status === "sending") {
         alert("⏳ Payment pending on blockchain. Click again after sending!");
       } else {
-        alert(`❌ Status: ${data.payment_status ? data.payment_status.toUpperCase() : "UNKNOWN"}. Payment not received yet.`);
+        alert(`❌ Status: ${data.payment_status ? data.payment_status.toUpperCase() : "UNKNOWN"}.`);
       }
     } catch (err) {
       setVerifyingPayment(false);
@@ -301,7 +308,6 @@ export default function Home() {
     }
   };
 
-  // CHECK IF LOGGED IN USER IS ADMIN
   const userEmailClean = user && user.email ? user.email.trim().toLowerCase() : "";
   const isAdmin = userEmailClean === ADMIN_EMAIL;
 
@@ -315,9 +321,9 @@ export default function Home() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0b0f19', color: '#f1f5f9', padding: '30px 20px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       
-      {/* Top Bar Navigation */}
+      {/* Header */}
       <header style={{ maxWidth: '1100px', margin: '0 auto 40px auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', backgroundColor: '#161e2e', padding: '16px 24px', borderRadius: '16px', border: '1px solid #243045' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => { setActiveTab("marketplace"); setSelectedAsset(null); }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => { setActiveTab("marketplace"); setSelectedAsset(null); fetchApprovedAssets(); }}>
           <div style={{ backgroundColor: '#8b5cf6', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px' }}>⚡</div>
           <span style={{ fontSize: '22px', fontWeight: '800', background: 'linear-gradient(90deg, #a855f7, #38bdf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             CodeHub AI
@@ -326,7 +332,7 @@ export default function Home() {
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button 
-            onClick={() => { setActiveTab("marketplace"); setSubmitted(false); setSelectedAsset(null); }}
+            onClick={() => { setActiveTab("marketplace"); setSubmitted(false); setSelectedAsset(null); fetchApprovedAssets(); }}
             style={{ backgroundColor: activeTab === "marketplace" ? "#7c3aed" : "transparent", color: "white", border: activeTab === "marketplace" ? "none" : "1px solid #334155", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "600" }}
           >
             🛒 Marketplace
@@ -355,10 +361,10 @@ export default function Home() {
             + Sell Asset
           </button>
 
-          {/* 👑 ADMIN BUTTON (VISIBLE ONLY TO mahmoodoffice9@gmail.com) */}
+          {/* ADMIN BUTTON */}
           {isAdmin && (
             <button 
-              onClick={() => setActiveTab("admin")}
+              onClick={() => { setActiveTab("admin"); fetchAllAssetsAdmin(); }}
               style={{ backgroundColor: activeTab === "admin" ? "#dc2626" : "#991b1b", color: "white", border: "none", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "800", boxShadow: "0 0 10px rgba(220, 38, 38, 0.5)" }}
             >
               👑 Admin Panel
@@ -386,7 +392,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* TAB 1: MARKETPLACE */}
+      {/* MARKETPLACE TAB */}
       {activeTab === "marketplace" && !selectedAsset && (
         <>
           <div style={{ maxWidth: '1000px', margin: '0 auto 40px auto', textAlign: 'center' }}>
@@ -396,12 +402,9 @@ export default function Home() {
             <h1 style={{ fontSize: '46px', fontWeight: '800', marginTop: '20px', marginBottom: '12px', letterSpacing: '-1px' }}>
               Premium <span style={{ background: 'linear-gradient(90deg, #c084fc, #38bdf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>AI Workflows & Codebase</span>
             </h1>
-            <p style={{ color: '#94a3b8', fontSize: '17px', maxWidth: '600px', margin: '0 auto 30px auto' }}>
-              Verified production-ready n8n flows, AI agents, and code. Instant file delivery upon automated crypto verification.
-            </p>
 
             {/* Search & Filter */}
-            <div style={{ maxWidth: '650px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div style={{ maxWidth: '650px', margin: '30px auto 0 auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <input 
                 type="text"
                 placeholder="🔍 Search workflows, scrapers, agents..."
@@ -572,7 +575,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* TAB 2: MY PURCHASES */}
+      {/* MY PURCHASES TAB */}
       {activeTab === "purchases" && (
         <div style={{ maxWidth: '900px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #243045' }}>
           <h1 style={{ fontSize: '26px', margin: '0 0 10px 0', color: '#f8fafc' }}>📦 Order & Purchase History</h1>
@@ -612,20 +615,17 @@ export default function Home() {
         </div>
       )}
 
-      {/* TAB: MY LISTED ASSETS */}
+      {/* MY LISTINGS TAB */}
       {activeTab === "my-listings" && user && (
         <div style={{ maxWidth: '900px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #243045' }}>
           <h1 style={{ fontSize: '26px', margin: '0 0 10px 0', color: '#f8fafc' }}>📋 My Uploaded Assets & Approval Status</h1>
-          <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '30px' }}>
-            Track your submission status. Approved assets are automatically published to the public marketplace.
-          </p>
 
           {userAssets.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#0b0f19', borderRadius: '12px' }}>
               <p style={{ color: '#94a3b8', margin: 0 }}>You haven't uploaded any assets yet.</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '20px' }}>
               {userAssets.map((item) => (
                 <div key={item.id} style={{ backgroundColor: '#0b0f19', border: '1px solid #243045', padding: '20px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
@@ -667,7 +667,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* TAB 3: ADMIN PANEL */}
+      {/* ADMIN PANEL */}
       {activeTab === "admin" && isAdmin && (
         <div style={{ maxWidth: '950px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #ef4444' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -675,9 +675,12 @@ export default function Home() {
               <h1 style={{ fontSize: '24px', margin: 0, color: '#f87171' }}>👑 Admin Approval Dashboard</h1>
               <p style={{ color: '#94a3b8', fontSize: '13px', margin: '4px 0 0 0' }}>Logged in as Super Admin ({user.email})</p>
             </div>
-            <span style={{ backgroundColor: '#991b1b', color: 'white', padding: '6px 14px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
-              ADMIN ACTIVE
-            </span>
+            <button 
+              onClick={fetchAllAssetsAdmin}
+              style={{ backgroundColor: '#243045', color: '#38bdf8', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+            >
+              🔄 Refresh List
+            </button>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '20px' }}>
@@ -732,17 +735,15 @@ export default function Home() {
         </div>
       )}
 
-      {/* TAB 4: DIRECT PASSWORD LOGIN (NO MAGIC LINKS) */}
+      {/* LOGIN TAB */}
       {activeTab === "login" && (
         <div style={{ maxWidth: "450px", margin: "0 auto", backgroundColor: "#161e2e", padding: "32px", borderRadius: "20px", border: "1px solid #243045", textAlign: "center" }}>
           <h2 style={{ marginTop: 0, color: '#f8fafc' }}>Direct Login 🔑</h2>
-          <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "20px" }}>Enter your credentials to access your dashboard.</p>
-          
-          <form onSubmit={handlePasswordLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          <form onSubmit={handlePasswordLogin} style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "20px" }}>
             <input 
               type="email" 
               required 
-              placeholder="Email (e.g. mahmoodoffice9@gmail.com)" 
+              placeholder="Email..." 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "1px solid #334155", backgroundColor: "#0b0f19", color: "white", boxSizing: "border-box", outline: 'none' }}
@@ -767,32 +768,27 @@ export default function Home() {
         </div>
       )}
 
-      {/* TAB 5: UPLOAD */}
+      {/* UPLOAD TAB */}
       {activeTab === "upload" && (
         <div style={{ maxWidth: "650px", margin: "0 auto", backgroundColor: "#161e2e", padding: "32px", borderRadius: "20px", border: "1px solid #243045" }}>
           <h1 style={{ fontSize: "26px", marginTop: "0", marginBottom: "6px", color: "#f8fafc" }}>List Your AI Asset 🚀</h1>
-          <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "25px" }}>Sell n8n workflows, AI agents, or Micro-SaaS to buyers worldwide.</p>
 
           {!user ? (
             <div style={{ textAlign: "center", padding: "30px", backgroundColor: "#0b0f19", borderRadius: "12px" }}>
               <h3 style={{ marginTop: 0, color: "white" }}>🔒 Login Required</h3>
-              <p style={{ color: "#94a3b8" }}>Please login first to upload assets for review.</p>
               <button 
                 onClick={() => setActiveTab("login")}
                 style={{ backgroundColor: "#38bdf8", color: "#0f172a", border: "none", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "800", marginTop: "10px" }}
               >
-                Login / Sign Up 🔑
+                Login 🔑
               </button>
             </div>
           ) : submitted ? (
             <div style={{ backgroundColor: "#064e3b", padding: "24px", borderRadius: "12px", color: "#34d399", textAlign: "center", border: '1px solid #059669' }}>
               <h3 style={{ margin: '0 0 8px 0' }}>✅ Asset Submitted for Review!</h3>
-              <p style={{ color: '#cbd5e1', fontSize: '14px', margin: '0 0 20px 0' }}>
-                Your asset was sent to Admin (<strong>mahmoodoffice9@gmail.com</strong>). Once approved, it will be published to the marketplace!
-              </p>
               <button 
                 onClick={() => { setActiveTab("my-listings"); setSubmitted(false); }}
-                style={{ backgroundColor: "#10b981", color: "#0f172a", border: "none", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "800" }}
+                style={{ backgroundColor: "#10b981", color: "#0f172a", border: "none", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "800", marginTop: "15px" }}
               >
                 Track Status in My Listings 📋
               </button>
@@ -804,7 +800,7 @@ export default function Home() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. LinkedIn Outreach Automation n8n Flow"
+                  placeholder="e.g. LinkedIn Automation n8n Flow"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0b0f19", color: "white", boxSizing: "border-box" }}
@@ -815,57 +811,14 @@ export default function Home() {
                 <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "#cbd5e1", fontWeight: "600" }}>Category</label>
                 <select
                   value={formData.category}
-                  onChange={(e) => {
-                    const selected = e.target.value;
-                    setFormData(prev => ({ ...prev, category: selected }));
-                  }}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0b0f19", color: "white", boxSizing: "border-box" }}
                 >
                   <option value="n8n Workflow">n8n Workflow</option>
                   <option value="Make.com Flow">Make.com Flow</option>
-                  <option value="AI Agent">AI Agent (Python/LangChain)</option>
+                  <option value="AI Agent">AI Agent</option>
                   <option value="Micro-SaaS">Micro-SaaS / Codebase</option>
                 </select>
-              </div>
-
-              <div style={{ backgroundColor: "#0f172a", padding: "18px", borderRadius: "12px", border: "1px solid #38bdf8" }}>
-                <h4 style={{ margin: "0 0 10px 0", color: "#38bdf8", fontSize: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
-                  📌 Step-by-Step Guide for {formData.category}:
-                </h4>
-
-                {formData.category === "n8n Workflow" && (
-                  <ol style={{ margin: 0, paddingLeft: "20px", color: "#cbd5e1", fontSize: "13px", lineHeight: "1.7" }}>
-                    <li>Open your <strong>n8n Dashboard</strong> and select your workflow.</li>
-                    <li>Click top-right menu and choose <strong>"Export JSON"</strong>.</li>
-                    <li>Upload this JSON file to <strong>Google Drive</strong> or <strong>GitHub Gist</strong>.</li>
-                    <li>Set sharing permission to <strong>"Anyone with the link"</strong> and paste the link below!</li>
-                  </ol>
-                )}
-
-                {formData.category === "Make.com Flow" && (
-                  <ol style={{ margin: 0, paddingLeft: "20px", color: "#cbd5e1", fontSize: "13px", lineHeight: "1.7" }}>
-                    <li>Open your <strong>Make.com Scenario</strong> editor.</li>
-                    <li>Click the 3-dots menu at bottom and click <strong>"Export Blueprint"</strong>.</li>
-                    <li>Upload the `.json` file to <strong>Google Drive</strong>.</li>
-                    <li>Set file access to <strong>Public</strong> and copy-paste the URL below!</li>
-                  </ol>
-                )}
-
-                {formData.category === "AI Agent" && (
-                  <ol style={{ margin: 0, paddingLeft: "20px", color: "#cbd5e1", fontSize: "13px", lineHeight: "1.7" }}>
-                    <li>Compress your Python/LangChain source code into a <strong>`.zip` file</strong>.</li>
-                    <li>Upload the zip file to <strong>Google Drive / GitHub / Dropbox</strong>.</li>
-                    <li>Ensure link is publicly accessible for buyers to download after payment.</li>
-                  </ol>
-                )}
-
-                {formData.category === "Micro-SaaS" && (
-                  <ol style={{ margin: 0, paddingLeft: "20px", color: "#cbd5e1", fontSize: "13px", lineHeight: "1.7" }}>
-                    <li>Package your full codebase repository into a <strong>`.zip`</strong> archive.</li>
-                    <li>Upload to cloud storage (Google Drive / GitHub Releases).</li>
-                    <li>Paste the public download link in the field below.</li>
-                  </ol>
-                )}
               </div>
 
               <div>
@@ -881,7 +834,7 @@ export default function Home() {
               </div>
 
               <div>
-                <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "#cbd5e1", fontWeight: "600" }}>Deliverable File Link (Drive / GitHub URL)</label>
+                <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "#cbd5e1", fontWeight: "600" }}>Deliverable File Link</label>
                 <input
                   type="url"
                   required
@@ -897,7 +850,7 @@ export default function Home() {
                 <textarea
                   rows="4"
                   required
-                  placeholder="Describe key features, requirements, and setup steps..."
+                  placeholder="Describe your asset..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0b0f19", color: "white", boxSizing: "border-box" }}
@@ -909,7 +862,7 @@ export default function Home() {
                 disabled={loading}
                 style={{ backgroundColor: loading ? "#6b21a8" : "#7c3aed", color: "white", border: "none", padding: "14px", fontSize: "16px", borderRadius: "10px", cursor: "pointer", fontWeight: "800", marginTop: "10px" }}
               >
-                {loading ? "Submitting for Review..." : "Submit Asset for Approval 🚀"}
+                {loading ? "Submitting..." : "Submit Asset 🚀"}
               </button>
             </form>
           )}
