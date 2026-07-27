@@ -23,7 +23,11 @@ export default function Home() {
   const [userAssets, setUserAssets] = useState([]);
   const [purchasedHistory, setPurchasedHistory] = useState([]);
   const [user, setUser] = useState(null);
+  
+  // Auth States
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [usePasswordLogin, setUsePasswordLogin] = useState(true); // Password Login Default
   const [authMsg, setAuthMsg] = useState("");
 
   // Search & Filter States
@@ -81,6 +85,24 @@ export default function Home() {
     }
   };
 
+  // 🔐 Password Login (Bypasses Rate Limit Error)
+  const handlePasswordLogin = async (e) => {
+    e.preventDefault();
+    setAuthMsg("Logging in...");
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
+    if (error) {
+      setAuthMsg("Error: " + error.message);
+    } else {
+      setAuthMsg("✅ Logged in successfully!");
+      setActiveTab("marketplace");
+      setPassword("");
+    }
+  };
+
+  // ✉️ Magic Link Email Login
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     setAuthMsg("Sending Magic Link...");
@@ -709,28 +731,70 @@ export default function Home() {
         </div>
       )}
 
-      {/* TAB 4: LOGIN */}
+      {/* TAB 4: LOGIN (SUPPORTING BOTH DUAL PASSWORD & MAGIC LINK) */}
       {activeTab === "login" && (
         <div style={{ maxWidth: "450px", margin: "0 auto", backgroundColor: "#161e2e", padding: "32px", borderRadius: "20px", border: "1px solid #243045", textAlign: "center" }}>
           <h2 style={{ marginTop: 0, color: '#f8fafc' }}>Seller & User Login 🔑</h2>
-          <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "20px" }}>Enter your email to receive an instant Magic Login link.</p>
           
-          <form onSubmit={handleEmailLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-            <input 
-              type="email" 
-              required 
-              placeholder="Enter your email address..." 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "1px solid #334155", backgroundColor: "#0b0f19", color: "white", boxSizing: "border-box", outline: 'none' }}
-            />
+          {/* LOGIN METHOD SWITCHER BUTTONS */}
+          <div style={{ display: "flex", gap: "10px", marginBottom: "20px", justifyContent: "center" }}>
             <button 
-              type="submit" 
-              style={{ backgroundColor: "#38bdf8", color: "#0f172a", border: "none", padding: "12px", borderRadius: "10px", fontWeight: "800", cursor: "pointer", fontSize: "16px" }}
+              onClick={() => { setUsePasswordLogin(true); setAuthMsg(""); }}
+              style={{ backgroundColor: usePasswordLogin ? "#7c3aed" : "#0b0f19", color: "white", border: "1px solid #334155", padding: "6px 14px", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: "bold" }}
             >
-              Send Magic Link ✨
+              🔑 Password Login
             </button>
-          </form>
+            <button 
+              onClick={() => { setUsePasswordLogin(false); setAuthMsg(""); }}
+              style={{ backgroundColor: !usePasswordLogin ? "#7c3aed" : "#0b0f19", color: "white", border: "1px solid #334155", padding: "6px 14px", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: "bold" }}
+            >
+              ✉️ Magic Link OTP
+            </button>
+          </div>
+
+          {usePasswordLogin ? (
+            <form onSubmit={handlePasswordLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+              <input 
+                type="email" 
+                required 
+                placeholder="Enter email (e.g. mahmoodoffice9@gmail.com)" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "1px solid #334155", backgroundColor: "#0b0f19", color: "white", boxSizing: "border-box", outline: 'none' }}
+              />
+              <input 
+                type="password" 
+                required 
+                placeholder="Enter password..." 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "1px solid #334155", backgroundColor: "#0b0f19", color: "white", boxSizing: "border-box", outline: 'none' }}
+              />
+              <button 
+                type="submit" 
+                style={{ backgroundColor: "#38bdf8", color: "#0f172a", border: "none", padding: "12px", borderRadius: "10px", fontWeight: "800", cursor: "pointer", fontSize: "16px" }}
+              >
+                Instant Password Login 🚀
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleEmailLogin} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+              <input 
+                type="email" 
+                required 
+                placeholder="Enter your email address..." 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "1px solid #334155", backgroundColor: "#0b0f19", color: "white", boxSizing: "border-box", outline: 'none' }}
+              />
+              <button 
+                type="submit" 
+                style={{ backgroundColor: "#38bdf8", color: "#0f172a", border: "none", padding: "12px", borderRadius: "10px", fontWeight: "800", cursor: "pointer", fontSize: "16px" }}
+              >
+                Send Magic Link ✨
+              </button>
+            </form>
+          )}
 
           {authMsg && <p style={{ marginTop: "15px", fontSize: "14px", color: authMsg.includes("✅") ? "#10b981" : "#f87171" }}>{authMsg}</p>}
         </div>
