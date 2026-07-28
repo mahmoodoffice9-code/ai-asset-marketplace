@@ -447,14 +447,31 @@ export default function Home() {
   };
 
   const recordPurchase = async (asset, paymentDetails) => {
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+    const formattedTime = now.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
     const newPurchase = {
       id: Date.now(),
       title: asset.title,
+      category: asset.category,
       price: asset.price,
       currency: "BNB (BEP-20)",
+      paymentMethod: "Crypto (NOWPayments / BNB BSC)",
       fileUrl: asset.file_url,
-      date: new Date().toLocaleString(),
-      paymentId: paymentDetails.payment_id,
+      date: formattedDate,
+      time: formattedTime,
+      fullTimestamp: `${formattedDate} at ${formattedTime}`,
+      paymentId: paymentDetails.payment_id || `PAY_${Date.now()}`,
+      payAddress: paymentDetails.pay_address || "N/A",
     };
 
     const updated = [newPurchase, ...purchasedHistory];
@@ -526,7 +543,7 @@ export default function Home() {
   const yesterdayStr = yesterday.toISOString().split("T")[0];
 
   const totalAdminRevenue = allSalesForAdmin.reduce((sum, item) => sum + Number(item.price || 0), 0);
-  const platformFeePercentage = 0.10; // 10% platform commission fee
+  const platformFeePercentage = 0.10;
   const totalProfit = totalAdminRevenue * platformFeePercentage;
 
   const totalPaidOut = payoutsHistory.reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -589,11 +606,12 @@ export default function Home() {
             </button>
           )}
 
+          {/* 📜 NEW BUYING HISTORY / DETAILS TAB */}
           <button 
             onClick={() => setActiveTab("purchases")}
-            style={{ backgroundColor: activeTab === "purchases" ? "#7c3aed" : "transparent", color: "white", border: activeTab === "purchases" ? "none" : "1px solid #334155", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "600" }}
+            style={{ backgroundColor: activeTab === "purchases" ? "#38bdf8" : "transparent", color: activeTab === "purchases" ? "#0f172a" : "white", border: activeTab === "purchases" ? "none" : "1px solid #38bdf8", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "700" }}
           >
-            📦 My Purchases {purchasedHistory.length > 0 && <span style={{ backgroundColor: '#10b981', color: 'black', fontSize: '11px', padding: '2px 6px', borderRadius: '10px', marginLeft: '6px', fontWeight: 'bold' }}>{purchasedHistory.length}</span>}
+            📜 Buying Details {purchasedHistory.length > 0 && <span style={{ backgroundColor: '#10b981', color: 'black', fontSize: '11px', padding: '2px 6px', borderRadius: '10px', marginLeft: '6px', fontWeight: 'bold' }}>{purchasedHistory.length}</span>}
           </button>
 
           {user && (
@@ -612,10 +630,9 @@ export default function Home() {
             + Sell Asset
           </button>
 
-          {/* 💬 CONTACT SUPPORT BUTTON */}
           <button 
             onClick={() => { setActiveTab("support"); setSupportSubmitted(false); }}
-            style={{ backgroundColor: activeTab === "support" ? "#38bdf8" : "transparent", color: activeTab === "support" ? "#0f172a" : "white", border: activeTab === "support" ? "none" : "1px solid #38bdf8", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "700" }}
+            style={{ backgroundColor: activeTab === "support" ? "#f59e0b" : "transparent", color: activeTab === "support" ? "#0f172a" : "white", border: activeTab === "support" ? "none" : "1px solid #f59e0b", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "700" }}
           >
             💬 Support
           </button>
@@ -730,10 +747,89 @@ export default function Home() {
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* 💬 CONTACT SUPPORT SEPARATE TAB */}
+      {/* 📜 NEW FULL BUYING HISTORY & TIMELINE FOLDER TAB */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === "purchases" && (
+        <div style={{ maxWidth: '1000px', margin: '0 auto', backgroundColor: '#161e2e', padding: '36px', borderRadius: '20px', border: '1px solid #38bdf8' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
+            <div>
+              <h1 style={{ fontSize: '28px', margin: 0, color: '#f8fafc' }}>📜 Detailed Buying History Folder</h1>
+              <p style={{ color: '#94a3b8', fontSize: '14px', margin: '4px 0 0 0' }}>Complete chronological timeline of your purchased AI scripts & codebases.</p>
+            </div>
+            <span style={{ backgroundColor: '#0b0f19', border: '1px solid #334155', color: '#38bdf8', padding: '8px 16px', borderRadius: '30px', fontWeight: 'bold', fontSize: '13px' }}>
+              Total Orders: {purchasedHistory.length}
+            </span>
+          </div>
+
+          {purchasedHistory.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '50px 20px', backgroundColor: '#0b0f19', borderRadius: '16px', border: '1px dashed #334155' }}>
+              <span style={{ fontSize: '40px' }}>🛒</span>
+              <p style={{ color: '#94a3b8', marginTop: '10px' }}>You haven't purchased any items yet on this device.</p>
+              <button onClick={() => setActiveTab("marketplace")} style={{ backgroundColor: '#7c3aed', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginTop: '10px' }}>Explore Marketplace 🚀</button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {purchasedHistory.map((item) => (
+                <div key={item.id} style={{ backgroundColor: '#0b0f19', padding: '24px', borderRadius: '16px', border: '1px solid #243045', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  
+                  {/* Top Bar: Title & Price */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#c084fc', backgroundColor: 'rgba(168, 85, 247, 0.15)', padding: '3px 8px', borderRadius: '12px', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                        {item.category || "AI Asset"}
+                      </span>
+                      <h3 style={{ margin: '6px 0 0 0', color: '#f8fafc', fontSize: '20px', fontWeight: '800' }}>{item.title}</h3>
+                    </div>
+
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ color: '#10b981', fontSize: '22px', fontWeight: '800' }}>${item.price} USD</span>
+                      <p style={{ color: '#64748b', fontSize: '11px', margin: '2px 0 0 0' }}>Status: Confirmed ✅</p>
+                    </div>
+                  </div>
+
+                  {/* Middle Info Grid: Time, Date & Payment Method */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', backgroundColor: '#161e2e', padding: '16px', borderRadius: '12px', border: '1px solid #1e293b' }}>
+                    <div>
+                      <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 2px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>📅 Purchase Date & Time</p>
+                      <p style={{ color: '#38bdf8', fontSize: '13px', margin: 0, fontWeight: '700' }}>{item.fullTimestamp || item.date}</p>
+                    </div>
+
+                    <div>
+                      <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 2px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>💳 Payment Method</p>
+                      <p style={{ color: '#f59e0b', fontSize: '13px', margin: 0, fontWeight: '700' }}>{item.paymentMethod || "BNB (BEP-20)"}</p>
+                    </div>
+
+                    <div>
+                      <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 2px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>🆔 Payment ID</p>
+                      <p style={{ color: '#cbd5e1', fontSize: '12px', margin: 0, fontFamily: 'monospace', wordBreak: 'break-all' }}>{item.paymentId || "N/A"}</p>
+                    </div>
+                  </div>
+
+                  {/* Bottom Bar: Instant Re-download Button */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', paddingTop: '8px' }}>
+                    <span style={{ fontSize: '12px', color: '#10b981', fontWeight: '600' }}>⚡ Lifetime Download Access Granted</span>
+                    <a 
+                      href={item.fileUrl} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      style={{ backgroundColor: '#10b981', color: '#0f172a', padding: '10px 22px', borderRadius: '10px', fontWeight: '800', textDecoration: 'none', fontSize: '13px', boxShadow: '0 0 10px rgba(16, 185, 129, 0.3)' }}
+                    >
+                      📥 Download Deliverables
+                    </a>
+                  </div>
+
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* CONTACT SUPPORT TAB */}
       {/* ------------------------------------------------------------- */}
       {activeTab === "support" && (
-        <div style={{ maxWidth: '650px', margin: '20px auto', backgroundColor: '#161e2e', padding: '36px', borderRadius: '20px', border: '1px solid #38bdf8' }}>
+        <div style={{ maxWidth: '650px', margin: '20px auto', backgroundColor: '#161e2e', padding: '36px', borderRadius: '20px', border: '1px solid #f59e0b' }}>
           <div style={{ textAlign: 'center', marginBottom: '28px' }}>
             <span style={{ fontSize: '36px' }}>💬</span>
             <h1 style={{ fontSize: '26px', margin: '8px 0 0 0', color: '#f8fafc', fontWeight: '800' }}>Contact Support Team</h1>
@@ -791,7 +887,7 @@ export default function Home() {
               <button 
                 type="submit" 
                 disabled={supportLoading}
-                style={{ backgroundColor: supportLoading ? '#0284c7' : '#38bdf8', color: '#0f172a', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '16px', marginTop: '6px' }}
+                style={{ backgroundColor: supportLoading ? '#f59e0b' : '#f59e0b', color: '#0f172a', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '16px', marginTop: '6px' }}
               >
                 {supportLoading ? "Submitting Ticket..." : "Submit Support Request 🚀"}
               </button>
@@ -946,26 +1042,6 @@ export default function Home() {
               </button>
             </div>
           ) : null}
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------- */}
-      {/* MY PURCHASES TAB */}
-      {/* ------------------------------------------------------------- */}
-      {activeTab === "purchases" && (
-        <div style={{ maxWidth: '900px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px' }}>
-          <h1 style={{ fontSize: '26px', margin: '0 0 20px 0' }}>📦 Order & Purchase History</h1>
-          {purchasedHistory.length === 0 ? <p style={{ color: '#94a3b8' }}>No local purchases found.</p> : (
-            purchasedHistory.map((item) => (
-              <div key={item.id} style={{ backgroundColor: '#0b0f19', padding: '16px', borderRadius: '12px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h3 style={{ margin: 0, color: '#f8fafc' }}>{item.title}</h3>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#94a3b8' }}>Price: ${item.price} USD | {item.date}</p>
-                </div>
-                <a href={item.fileUrl} target="_blank" rel="noreferrer" style={{ backgroundColor: '#38bdf8', color: '#0f172a', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', textDecoration: 'none' }}>Download Link</a>
-              </div>
-            ))
-          )}
         </div>
       )}
 
