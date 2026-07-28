@@ -53,7 +53,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("All");
 
   // Detail Modal & Payment Modal States
-  const [viewingAsset, setViewingAsset] = useState(null); // 👈 For Asset Detail Modal
+  const [viewingAsset, setViewingAsset] = useState(null);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [paymentData, setPaymentData] = useState(null);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
@@ -61,6 +61,7 @@ export default function Home() {
 
   // 👛 WALLET SELECTION STATE
   const [selectedWallet, setSelectedWallet] = useState("");
+  const [agreeTerms, setAgreeTerms] = useState(false); // 👈 Terms Checkbox State
 
   // Withdraw State
   const [withdrawAddress, setWithdrawAddress] = useState("");
@@ -98,7 +99,6 @@ export default function Home() {
     fetchApprovedAssets();
     checkUser();
 
-    // Load Local Purchased History
     const localPurchases = localStorage.getItem("ai_hub_purchases");
     if (localPurchases) {
       try {
@@ -415,9 +415,10 @@ export default function Home() {
   // NOWPAYMENTS API & PAYMENT VERIFICATION
   // -------------------------------------------------------------
   const createNowPayment = async (asset) => {
-    setViewingAsset(null); // Close Detail Modal if open
+    setViewingAsset(null);
     setSelectedAsset(asset);
-    setSelectedWallet(""); // Reset wallet selection
+    setSelectedWallet("");
+    setAgreeTerms(false);
     setPaymentSubmitted(false);
     setPaymentData(null);
     setCreatingPayment(true);
@@ -452,19 +453,19 @@ export default function Home() {
     }
   };
 
-  // 👛 REDIRECT USER TO WALLET FOR DIRECT PAYMENT
   const handleOpenWalletAndPay = () => {
+    if (!agreeTerms) {
+      alert("Please agree to the Terms and Conditions before proceeding!");
+      return;
+    }
     if (!paymentData || !paymentData.pay_address) return;
 
-    // Address and BNB Amount
     const address = paymentData.pay_address;
     const amount = paymentData.pay_amount;
 
-    // Clipboard copy backup
     navigator.clipboard?.writeText?.(address);
 
     let redirectUrl = "";
-
     switch (selectedWallet) {
       case "metamask":
         redirectUrl = `https://metamask.app.link/send/${address}@56?value=${amount}`;
@@ -479,7 +480,6 @@ export default function Home() {
         redirectUrl = `https://go.cb-w.com/pay?address=${address}`;
         break;
       default:
-        // Generic fallback / Copy & open web
         redirectUrl = `https://bscscan.com/address/${address}`;
         break;
     }
@@ -573,7 +573,6 @@ export default function Home() {
   const totalSalesCount = sellerSalesHistory.length;
   const totalRevenue = sellerSalesHistory.reduce((acc, curr) => acc + Number(curr.price || 0), 0);
 
-  // Financial Stats
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
 
@@ -614,9 +613,7 @@ export default function Home() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0b0f19', color: '#f1f5f9', padding: '30px 20px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       
-      {/* ------------------------------------------------------------- */}
       {/* HEADER NAVBAR */}
-      {/* ------------------------------------------------------------- */}
       <header style={{ maxWidth: '1100px', margin: '0 auto 40px auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', backgroundColor: '#161e2e', padding: '16px 24px', borderRadius: '16px', border: '1px solid #243045' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => { setActiveTab("marketplace"); setSelectedAsset(null); setViewingAsset(null); fetchApprovedAssets(); }}>
           <div style={{ backgroundColor: '#8b5cf6', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px' }}>⚡</div>
@@ -702,9 +699,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ------------------------------------------------------------- */}
       {/* MARKETPLACE MAIN LISTING PAGE */}
-      {/* ------------------------------------------------------------- */}
       {activeTab === "marketplace" && !selectedAsset && !viewingAsset && (
         <>
           <div style={{ maxWidth: '1000px', margin: '0 auto 40px auto', textAlign: 'center' }}>
@@ -715,7 +710,6 @@ export default function Home() {
               Premium <span style={{ background: 'linear-gradient(90deg, #c084fc, #38bdf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>AI Workflows & Codebase</span>
             </h1>
 
-            {/* Search & Category Filter */}
             <div style={{ maxWidth: '650px', margin: '30px auto 0 auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <input 
                 type="text"
@@ -758,7 +752,6 @@ export default function Home() {
                 {filteredAssets.map((item) => (
                   <div key={item.id} style={{ backgroundColor: '#161e2e', border: '1px solid #243045', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', transition: 'all 0.2s ease-in-out' }}>
                     <div>
-                      {/* 🏷️ CATEGORY BADGE & PRICE */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                         <span style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)', padding: '5px 12px', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.3)', textTransform: 'uppercase' }}>
                           ⚡ {item.category}
@@ -766,17 +759,13 @@ export default function Home() {
                         <span style={{ color: '#10b981', fontWeight: '800', fontSize: '18px' }}>${item.price} USD</span>
                       </div>
 
-                      {/* 📌 CLICKABLE TITLE FOR FULL DETAILS */}
                       <h3 
                         onClick={() => setViewingAsset(item)}
-                        style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: '800', color: '#f8fafc', cursor: 'pointer', textDecorationLine: 'none' }}
-                        onMouseEnter={(e) => e.target.style.color = "#38bdf8"}
-                        onMouseLeave={(e) => e.target.style.color = "#f8fafc"}
+                        style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: '800', color: '#f8fafc', cursor: 'pointer' }}
                       >
                         {item.title} <span style={{ fontSize: '14px', color: '#38bdf8' }}>↗</span>
                       </h3>
 
-                      {/* SHORT DESCRIPTION ON CARDS */}
                       <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.5', minHeight: '42px', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                         {item.description}
                       </p>
@@ -805,9 +794,7 @@ export default function Home() {
         </>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* 🔍 FULL ATTRACTIVE ASSET DETAILS MODAL SCREEN */}
-      {/* ------------------------------------------------------------- */}
+      {/* FULL ATTRACTIVE ASSET DETAILS MODAL SCREEN */}
       {viewingAsset && !selectedAsset && (
         <div style={{ maxWidth: '800px', margin: '20px auto', backgroundColor: '#161e2e', padding: '36px', borderRadius: '24px', border: '1px solid #38bdf8', boxShadow: '0 0 30px rgba(56, 189, 248, 0.15)' }}>
           <button 
@@ -817,7 +804,6 @@ export default function Home() {
             ← Back to Marketplace
           </button>
 
-          {/* Top Bar Details */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
             <div>
               <span style={{ fontSize: '12px', fontWeight: '800', color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.3)', textTransform: 'uppercase' }}>
@@ -839,7 +825,6 @@ export default function Home() {
 
           <hr style={{ borderColor: '#243045', margin: '28px 0' }} />
 
-          {/* Detailed Features & Description Box */}
           <div style={{ marginBottom: '30px' }}>
             <h3 style={{ color: '#f8fafc', fontSize: '18px', fontWeight: '800', marginBottom: '12px' }}>📖 Complete Description & Deliverables</h3>
             <div style={{ backgroundColor: '#0b0f19', padding: '24px', borderRadius: '16px', border: '1px solid #1e293b', color: '#cbd5e1', fontSize: '15px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
@@ -847,19 +832,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Highlights & Guarantees Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '30px' }}>
-            <div style={{ backgroundColor: '#0b0f19', padding: '14px 18px', borderRadius: '12px', border: '1px solid #1e293b' }}>
-              <span style={{ color: '#f59e0b', fontSize: '13px', fontWeight: 'bold' }}>⚡ Instant Access</span>
-              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '2px 0 0 0' }}>Immediate deliverable link after payment</p>
-            </div>
-            <div style={{ backgroundColor: '#0b0f19', padding: '14px 18px', borderRadius: '12px', border: '1px solid #1e293b' }}>
-              <span style={{ color: '#38bdf8', fontSize: '13px', fontWeight: 'bold' }}>🔒 Safe Escrow</span>
-              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '2px 0 0 0' }}>BNB Smart Chain Gateway protected</p>
-            </div>
-          </div>
-
-          {/* Action Button */}
           <button 
             onClick={() => createNowPayment(viewingAsset)}
             style={{ width: '100%', backgroundColor: '#10b981', color: '#0f172a', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: '800', fontSize: '18px', cursor: 'pointer', boxShadow: '0 0 20px rgba(16, 185, 129, 0.25)' }}
@@ -869,9 +841,49 @@ export default function Home() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
+      {/* 📜 TERMS AND CONDITIONS VIEW TAB */}
+      {activeTab === "terms" && (
+        <div style={{ maxWidth: '800px', margin: '20px auto', backgroundColor: '#161e2e', padding: '36px', borderRadius: '20px', border: '1px solid #38bdf8' }}>
+          <button 
+            onClick={() => setActiveTab("marketplace")}
+            style={{ backgroundColor: '#0b0f19', color: '#94a3b8', border: '1px solid #334155', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', marginBottom: '24px', fontSize: '13px', fontWeight: '700' }}
+          >
+            ← Back to Marketplace
+          </button>
+
+          <h1 style={{ color: '#f8fafc', fontSize: '28px', fontWeight: '800', marginBottom: '16px' }}>📜 Terms and Conditions</h1>
+          <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '20px' }}>Last updated: July 2026</p>
+
+          <div style={{ backgroundColor: '#0b0f19', padding: '24px', borderRadius: '16px', border: '1px solid #243045', color: '#cbd5e1', fontSize: '14px', lineHeight: '1.7', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <section>
+              <h3 style={{ color: '#38bdf8', marginBottom: '6px' }}>1. Acceptance of Terms</h3>
+              <p>By accessing or purchasing digital assets, codebases, or workflows from CodeHub AI, you agree to be bound by these Terms and Conditions. If you do not agree, please do not use our platform.</p>
+            </section>
+
+            <section>
+              <h3 style={{ color: '#38bdf8', marginBottom: '6px' }}>2. Digital Products & Refund Policy</h3>
+              <p>All items sold on CodeHub AI are digital code deliverables (n8n workflows, scripts, micro-SaaS codebases). Due to the irrevocable nature of digital source code downloads, <strong>all sales are final and non-refundable</strong> once the download link is accessed or delivered.</p>
+            </section>
+
+            <section>
+              <h3 style={{ color: '#38bdf8', marginBottom: '6px' }}>3. Crypto Payments & Escrow</h3>
+              <p>Payments are processed over the Binance Smart Chain (BNB / BEP-20) via secure automated gateways. Users are strictly responsible for sending exact amounts to designated addresses. Incorrect transfers or wrong networks cannot be manually reversed by platform administrators.</p>
+            </section>
+
+            <section>
+              <h3 style={{ color: '#38bdf8', marginBottom: '6px' }}>4. Intellectual Property & Licensing</h3>
+              <p>Purchasers receive a non-exclusive license to use, modify, and deploy the purchased workflows or source code for personal or commercial projects. Reselling or redistributing raw source code files publicly on other platforms is strictly prohibited.</p>
+            </section>
+
+            <section>
+              <h3 style={{ color: '#38bdf8', marginBottom: '6px' }}>5. Limitation of Liability</h3>
+              <p>CodeHub AI and its developers shall not be held liable for any direct, indirect, or incidental damages resulting from the use or integration of purchased codebases, APIs, or automated workflows.</p>
+            </section>
+          </div>
+        </div>
+      )}
+
       {/* 📜 BUYING HISTORY FOLDER TAB */}
-      {/* ------------------------------------------------------------- */}
       {activeTab === "purchases" && (
         <div style={{ maxWidth: '1000px', margin: '0 auto', backgroundColor: '#161e2e', padding: '36px', borderRadius: '20px', border: '1px solid #38bdf8' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
@@ -908,23 +920,6 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', backgroundColor: '#161e2e', padding: '16px', borderRadius: '12px', border: '1px solid #1e293b' }}>
-                    <div>
-                      <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 2px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>📅 Purchase Date & Time</p>
-                      <p style={{ color: '#38bdf8', fontSize: '13px', margin: 0, fontWeight: '700' }}>{item.fullTimestamp || item.date}</p>
-                    </div>
-
-                    <div>
-                      <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 2px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>💳 Payment Method</p>
-                      <p style={{ color: '#f59e0b', fontSize: '13px', margin: 0, fontWeight: '700' }}>{item.paymentMethod || "BNB (BEP-20)"}</p>
-                    </div>
-
-                    <div>
-                      <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 2px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>🆔 Payment ID</p>
-                      <p style={{ color: '#cbd5e1', fontSize: '12px', margin: 0, fontFamily: 'monospace', wordBreak: 'break-all' }}>{item.paymentId || "N/A"}</p>
-                    </div>
-                  </div>
-
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', paddingTop: '8px' }}>
                     <span style={{ fontSize: '12px', color: '#10b981', fontWeight: '600' }}>⚡ Lifetime Download Access Granted</span>
                     <a 
@@ -943,9 +938,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
       {/* CONTACT SUPPORT TAB */}
-      {/* ------------------------------------------------------------- */}
       {activeTab === "support" && (
         <div style={{ maxWidth: '650px', margin: '20px auto', backgroundColor: '#161e2e', padding: '36px', borderRadius: '20px', border: '1px solid #f59e0b' }}>
           <div style={{ textAlign: 'center', marginBottom: '28px' }}>
@@ -983,7 +976,7 @@ export default function Home() {
                 <label style={{ display: 'block', fontSize: '13px', color: '#cbd5e1', marginBottom: '6px', fontWeight: 'bold' }}>Subject / Topic (Optional)</label>
                 <input 
                   type="text" 
-                  placeholder="e.g. Issue with download link, Crypto Payment, Seller inquiry..."
+                  placeholder="e.g. Issue with download link, Crypto Payment..."
                   value={supportSubject}
                   onChange={(e) => setSupportSubject(e.target.value)}
                   style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid #334155', backgroundColor: '#0b0f19', color: 'white', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
@@ -1014,9 +1007,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* 🏪 YOUR STORE TAB (SELLER ANALYTICS) */}
-      {/* ------------------------------------------------------------- */}
+      {/* YOUR STORE TAB (SELLER ANALYTICS) */}
       {activeTab === "your-store" && user && (
         <div style={{ maxWidth: '1000px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #10b981' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '30px' }}>
@@ -1038,85 +1029,19 @@ export default function Home() {
               <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Revenue</p>
               <h2 style={{ color: '#10b981', margin: 0, fontSize: '28px', fontWeight: '800' }}>${totalRevenue} <span style={{ fontSize: '14px', color: '#64748b' }}>USD</span></h2>
             </div>
-
             <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
               <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Sales</p>
               <h2 style={{ color: '#38bdf8', margin: 0, fontSize: '28px', fontWeight: '800' }}>{totalSalesCount}</h2>
             </div>
-
             <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
               <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Assets</p>
               <h2 style={{ color: '#c084fc', margin: 0, fontSize: '28px', fontWeight: '800' }}>{totalAssetsCount}</h2>
             </div>
-
-            <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
-              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Live / Approved</p>
-              <h2 style={{ color: '#22c55e', margin: 0, fontSize: '28px', fontWeight: '800' }}>{approvedAssetsCount}</h2>
-            </div>
-
-            <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
-              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Pending Review</p>
-              <h2 style={{ color: '#f59e0b', margin: 0, fontSize: '28px', fontWeight: '800' }}>{pendingAssetsCount}</h2>
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: '#0b0f19', padding: '24px', borderRadius: '14px', border: '1px solid #1e293b', marginBottom: '35px' }}>
-            <h3 style={{ margin: '0 0 8px 0', color: '#f8fafc', fontSize: '18px' }}>💸 Request Earnings Withdrawal</h3>
-            <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 16px 0' }}>Available Balance: <strong style={{ color: '#10b981' }}>${totalRevenue} USD</strong> (Payouts processed via BEP-20 USDT / BNB)</p>
-
-            <form onSubmit={(e) => { e.preventDefault(); if(!withdrawAddress) return alert("Enter wallet address"); setWithdrawMsg("✅ Withdrawal request logged! Admin will process payout."); setWithdrawAddress(""); }} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <input 
-                type="text" 
-                placeholder="Paste your BEP-20 Wallet Address (0x...)" 
-                value={withdrawAddress}
-                onChange={(e) => setWithdrawAddress(e.target.value)}
-                style={{ flex: 1, minWidth: '280px', padding: '12px 16px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#161e2e', color: 'white', fontSize: '13px', outline: 'none' }}
-              />
-              <button 
-                type="submit" 
-                style={{ backgroundColor: '#10b981', color: '#0f172a', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}
-              >
-                Withdraw Earnings 🚀
-              </button>
-            </form>
-            {withdrawMsg && <p style={{ margin: '12px 0 0 0', color: '#34d399', fontSize: '13px', fontWeight: 'bold' }}>{withdrawMsg}</p>}
-          </div>
-
-          <div>
-            <h3 style={{ margin: '0 0 16px 0', color: '#f8fafc', fontSize: '20px' }}>📈 Sales & Buyer Orders Log</h3>
-            {sellerSalesHistory.length === 0 ? (
-              <p style={{ color: '#94a3b8' }}>No completed sales recorded yet for your store.</p>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8' }}>
-                      <th style={{ padding: '12px' }}>Asset Title</th>
-                      <th style={{ padding: '12px' }}>Amount</th>
-                      <th style={{ padding: '12px' }}>Buyer Email</th>
-                      <th style={{ padding: '12px' }}>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sellerSalesHistory.map((sale) => (
-                      <tr key={sale.id} style={{ borderBottom: '1px solid #1e293b', color: '#f8fafc' }}>
-                        <td style={{ padding: '12px', fontWeight: '600', color: '#38bdf8' }}>{sale.asset_title}</td>
-                        <td style={{ padding: '12px', fontWeight: '800', color: '#10b981' }}>${sale.price} USD</td>
-                        <td style={{ padding: '12px', color: '#cbd5e1' }}>{sale.buyer_email || 'Guest User'}</td>
-                        <td style={{ padding: '12px', color: '#94a3b8' }}>{new Date(sale.created_at).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* CHECKOUT MODAL VIEW (WITH WALLET SELECTION) */}
-      {/* ------------------------------------------------------------- */}
+      {/* CHECKOUT MODAL VIEW (WITH WALLET SELECTION & TERMS CHECKBOX) */}
       {selectedAsset && (
         <div style={{ maxWidth: '650px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #38bdf8' }}>
           <button 
@@ -1150,7 +1075,6 @@ export default function Home() {
             </div>
           ) : paymentData ? (
             <div>
-              {/* 👛 STEP 1: SELECT WALLET */}
               <div style={{ marginBottom: '20px', backgroundColor: '#0b0f19', padding: '18px', borderRadius: '12px', border: '1px solid #243045' }}>
                 <label style={{ display: 'block', color: '#38bdf8', fontWeight: '800', fontSize: '14px', marginBottom: '8px' }}>
                   1️⃣ Select Your Crypto Wallet:
@@ -1169,8 +1093,7 @@ export default function Home() {
                 </select>
               </div>
 
-              {/* DETAILS & PAY BUTTON SHOWS ONLY WHEN WALLET IS SELECTED */}
-              {selectedWallet ? (
+              {selectedWallet && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   <div style={{ backgroundColor: '#0f172a', padding: '14px', borderRadius: '10px', border: '1px solid #334155' }}>
                     <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 4px 0' }}>Exact Payable Amount:</p>
@@ -1178,17 +1101,29 @@ export default function Home() {
                     <p style={{ color: '#94a3b8', fontSize: '11px', margin: '6px 0 0 0', fontFamily: 'monospace', wordBreak: 'break-all' }}>Target Address: {paymentData.pay_address}</p>
                   </div>
 
-                  {/* ⚡ PAY BUTTON TO OPEN SELECTED WALLET */}
+                  {/* 📜 TERMS AND CONDITIONS CHECKBOX */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#0b0f19', padding: '12px', borderRadius: '10px', border: '1px solid #243045' }}>
+                    <input 
+                      type="checkbox" 
+                      id="agree" 
+                      checked={agreeTerms} 
+                      onChange={(e) => setAgreeTerms(e.target.checked)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="agree" style={{ color: '#cbd5e1', fontSize: '13px', cursor: 'pointer' }}>
+                      I agree to the <span onClick={() => setActiveTab("terms")} style={{ color: '#38bdf8', textDecoration: 'underline' }}>Terms and Conditions</span> (All digital sales are final).
+                    </label>
+                  </div>
+
                   <button 
                     onClick={handleOpenWalletAndPay} 
-                    style={{ width: '100%', backgroundColor: '#f59e0b', color: '#0f172a', padding: '14px', borderRadius: '10px', fontWeight: '800', border: 'none', cursor: 'pointer', fontSize: '16px' }}
+                    style={{ width: '100%', backgroundColor: '#f59e0b', color: '#0f172a', padding: '14px', borderRadius: '10px', fontWeight: '800', border: 'none', cursor: 'pointer', fontSize: '16px', opacity: agreeTerms ? 1 : 0.6 }}
                   >
                     🚀 Pay Now via {selectedWallet.toUpperCase()}
                   </button>
 
                   <hr style={{ borderColor: '#243045', margin: '10px 0' }} />
 
-                  {/* VERIFY PAYMENT BUTTON */}
                   <button 
                     onClick={verifyNowPaymentStatus} 
                     disabled={verifyingPayment} 
@@ -1197,19 +1132,13 @@ export default function Home() {
                     {verifyingPayment ? "Checking Blockchain..." : "I Have Paid — Verify Status ✅"}
                   </button>
                 </div>
-              ) : (
-                <p style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', marginTop: '10px' }}>
-                  👆 Above dropdown se pehle apna wallet select karein taake Pay ka button enable ho jaye.
-                </p>
               )}
             </div>
           ) : null}
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
       {/* MY LISTINGS TAB */}
-      {/* ------------------------------------------------------------- */}
       {activeTab === "my-listings" && user && (
         <div style={{ maxWidth: '900px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px' }}>
           <h1 style={{ fontSize: '26px', margin: '0 0 20px 0' }}>📋 My Uploaded Assets</h1>
@@ -1227,9 +1156,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
       {/* 👑 ADMIN MASTER CONTROL PANEL */}
-      {/* ------------------------------------------------------------- */}
       {activeTab === "admin" && isAdmin && (
         <div style={{ maxWidth: '1050px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #ef4444' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
@@ -1245,135 +1172,16 @@ export default function Home() {
                 <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Gross Revenue</p>
                 <h2 style={{ color: '#10b981', margin: 0, fontSize: '26px', fontWeight: '800' }}>${totalAdminRevenue} <span style={{ fontSize: '12px', color: '#64748b' }}>USD</span></h2>
               </div>
-
               <div style={{ backgroundColor: '#161e2e', padding: '18px', borderRadius: '12px', border: '1px solid #334155' }}>
                 <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Platform Profit (10% Cut)</p>
                 <h2 style={{ color: '#c084fc', margin: 0, fontSize: '26px', fontWeight: '800' }}>${totalProfit.toFixed(2)} <span style={{ fontSize: '12px', color: '#64748b' }}>USD</span></h2>
               </div>
-
-              <div style={{ backgroundColor: '#161e2e', padding: '18px', borderRadius: '12px', border: '1px solid #334155' }}>
-                <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Paid Out to Sellers</p>
-                <h2 style={{ color: '#38bdf8', margin: 0, fontSize: '26px', fontWeight: '800' }}>${totalPaidOut} <span style={{ fontSize: '12px', color: '#64748b' }}>USD</span></h2>
-              </div>
-
-              <div style={{ backgroundColor: '#161e2e', padding: '18px', borderRadius: '12px', border: '1px solid #334155' }}>
-                <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Pending Payout Owed</p>
-                <h2 style={{ color: '#f59e0b', margin: 0, fontSize: '26px', fontWeight: '800' }}>${remainingPayoutOwed.toFixed(2)} <span style={{ fontSize: '12px', color: '#64748b' }}>USD</span></h2>
-              </div>
             </div>
-
-            <h4 style={{ color: '#cbd5e1', margin: '20px 0 12px 0' }}>📅 Sales Breakdown by Timeline</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '25px' }}>
-              <div style={{ backgroundColor: '#161e2e', padding: '16px', borderRadius: '12px', border: '1px solid #243045' }}>
-                <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 4px 0', fontWeight: 'bold' }}>Today's Sales ☀️</p>
-                <h3 style={{ color: '#f8fafc', margin: '0 0 4px 0', fontSize: '22px' }}>${todayRevenue} USD</h3>
-                <span style={{ fontSize: '12px', color: '#38bdf8' }}>{todaySales.length} Orders Today</span>
-              </div>
-
-              <div style={{ backgroundColor: '#161e2e', padding: '16px', borderRadius: '12px', border: '1px solid #243045' }}>
-                <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 4px 0', fontWeight: 'bold' }}>Yesterday's Sales 🌙</p>
-                <h3 style={{ color: '#f8fafc', margin: '0 0 4px 0', fontSize: '22px' }}>${yesterdayRevenue} USD</h3>
-                <span style={{ fontSize: '12px', color: '#38bdf8' }}>{yesterdaySales.length} Orders Yesterday</span>
-              </div>
-            </div>
-
-            <div style={{ backgroundColor: '#161e2e', padding: '18px', borderRadius: '12px', border: '1px solid #243045' }}>
-              <h4 style={{ color: '#f8fafc', margin: '0 0 12px 0', fontSize: '14px' }}>🔍 Custom Date Range Filter</h4>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Start Date</label>
-                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ backgroundColor: '#0b0f19', color: 'white', border: '1px solid #334155', padding: '8px', borderRadius: '6px', fontSize: '13px' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>End Date</label>
-                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ backgroundColor: '#0b0f19', color: 'white', border: '1px solid #334155', padding: '8px', borderRadius: '6px', fontSize: '13px' }} />
-                </div>
-                <div style={{ marginTop: '16px' }}>
-                  <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '16px', marginLeft: '10px' }}>
-                    Filtered Revenue: ${customDateRevenue} USD ({customDateSales.length} Sales)
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '40px', backgroundColor: '#0b0f19', padding: '24px', borderRadius: '16px', border: '1px solid #243045' }}>
-            <h3 style={{ color: '#10b981', margin: '0 0 12px 0' }}>💸 Record Seller Payout</h3>
-            <form onSubmit={handleRecordPayout} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <input type="email" required placeholder="Seller Email..." value={payoutSellerEmail} onChange={(e) => setPayoutSellerEmail(e.target.value)} style={{ flex: '1', minWidth: '200px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#161e2e', color: 'white', fontSize: '13px' }} />
-              <input type="number" step="0.01" required placeholder="Amount Paid ($ USD)" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} style={{ width: '160px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#161e2e', color: 'white', fontSize: '13px' }} />
-              <input type="text" placeholder="TX Hash / Note (Optional)" value={payoutTxHash} onChange={(e) => setPayoutTxHash(e.target.value)} style={{ flex: '1', minWidth: '180px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#161e2e', color: 'white', fontSize: '13px' }} />
-              <button type="submit" style={{ backgroundColor: '#10b981', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer' }}>Record Payout 🚀</button>
-            </form>
-          </div>
-
-          <div style={{ marginBottom: '40px' }}>
-            <h3 style={{ color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '8px' }}>📂 Pending & Active Asset Approvals</h3>
-            {allAssetsForAdmin.map((item) => (
-              <div key={item.id} style={{ backgroundColor: '#0b0f19', padding: '16px', borderRadius: '12px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h4 style={{ margin: 0, color: '#f8fafc' }}>{item.title} <span style={{ fontSize: '12px', color: item.status === 'approved' ? '#10b981' : '#f59e0b' }}>[{item.status.toUpperCase()}]</span></h4>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>Seller: {item.seller_email} | Price: ${item.price}</p>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {item.status !== 'approved' && <button onClick={() => handleUpdateStatus(item.id, 'approved')} style={{ backgroundColor: '#10b981', color: '#0f172a', border: 'none', padding: '6px 12px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Approve</button>}
-                  {item.status !== 'rejected' && <button onClick={() => handleUpdateStatus(item.id, 'rejected')} style={{ backgroundColor: '#dc2626', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Reject</button>}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <h3 style={{ color: '#f59e0b', borderBottom: '1px solid #334155', paddingBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>📩 Support Messages ({supportTickets.length})</span>
-              <button onClick={fetchSupportTicketsAdmin} style={{ backgroundColor: '#0f172a', color: '#38bdf8', border: '1px solid #334155', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>🔄 Refresh</button>
-            </h3>
-
-            {supportTickets.length === 0 ? (
-              <p style={{ color: '#94a3b8' }}>No support tickets submitted yet.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '15px' }}>
-                {supportTickets.map((ticket) => (
-                  <div key={ticket.id} style={{ backgroundColor: '#0b0f19', padding: '18px', borderRadius: '12px', border: ticket.status === 'resolved' ? '1px solid #10b981' : '1px solid #f59e0b' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                      <div>
-                        <span style={{ fontSize: '11px', fontWeight: '800', backgroundColor: ticket.status === 'resolved' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)', color: ticket.status === 'resolved' ? '#10b981' : '#f59e0b', padding: '2px 8px', borderRadius: '10px' }}>
-                          {ticket.status ? ticket.status.toUpperCase() : 'PENDING'}
-                        </span>
-                        <h4 style={{ margin: '6px 0 0 0', color: '#f8fafc', fontSize: '16px' }}>{ticket.subject}</h4>
-                      </div>
-                      <span style={{ fontSize: '12px', color: '#64748b' }}>{new Date(ticket.created_at).toLocaleString()}</span>
-                    </div>
-
-                    <p style={{ backgroundColor: '#161e2e', padding: '12px', borderRadius: '8px', color: '#cbd5e1', fontSize: '13px', margin: '8px 0', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
-                      {ticket.message}
-                    </p>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-                      <span style={{ fontSize: '13px', color: '#38bdf8', fontWeight: 'bold' }}>
-                        User Email: <a href={`mailto:${ticket.user_email}`} style={{ color: '#38bdf8', textDecoration: 'underline' }}>{ticket.user_email}</a>
-                      </span>
-
-                      {ticket.status !== 'resolved' && (
-                        <button 
-                          onClick={() => handleResolveTicket(ticket.id)}
-                          style={{ backgroundColor: '#10b981', color: '#0f172a', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: '800', cursor: 'pointer', fontSize: '12px' }}
-                        >
-                          Mark Resolved ✅
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
       {/* LOGIN TAB */}
-      {/* ------------------------------------------------------------- */}
       {activeTab === "login" && (
         <div style={{ maxWidth: "450px", margin: "0 auto", backgroundColor: "#161e2e", padding: "32px", borderRadius: "20px" }}>
           <h2>Direct Login 🔑</h2>
@@ -1386,9 +1194,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
       {/* UPLOAD ASSET TAB */}
-      {/* ------------------------------------------------------------- */}
       {activeTab === "upload" && (
         <div style={{ maxWidth: "650px", margin: "0 auto", backgroundColor: "#161e2e", padding: "32px", borderRadius: "20px" }}>
           <h1 style={{ fontSize: "26px", marginTop: "0" }}>List Your AI Asset 🚀</h1>
@@ -1415,11 +1221,17 @@ export default function Home() {
         </div>
       )}
 
-      {/* FOOTER */}
-      <footer style={{ maxWidth: '1100px', margin: '60px auto 20px auto', borderTop: '1px solid #243045', paddingTop: '20px', textAlign: 'center' }}>
-        <p style={{ color: '#64748b', fontSize: '12px' }}>
+      {/* FOOTER WITH TERMS LINK */}
+      <footer style={{ maxWidth: '1100px', margin: '60px auto 20px auto', borderTop: '1px solid #243045', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>
           © CodeHub AI Marketplace. Powered by Supabase & NOWPayments.
         </p>
+        <button 
+          onClick={() => setActiveTab("terms")} 
+          style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', fontWeight: '600' }}
+        >
+          Terms and Conditions
+        </button>
       </footer>
 
     </div>
