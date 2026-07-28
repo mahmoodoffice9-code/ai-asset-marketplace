@@ -511,6 +511,14 @@ export default function Home() {
             + Sell Asset
           </button>
 
+          {/* 💬 CONTACT SUPPORT BUTTON */}
+          <button 
+            onClick={() => { setActiveTab("support"); setSupportSubmitted(false); }}
+            style={{ backgroundColor: activeTab === "support" ? "#38bdf8" : "transparent", color: activeTab === "support" ? "#0f172a" : "white", border: activeTab === "support" ? "none" : "1px solid #38bdf8", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "700" }}
+          >
+            💬 Support
+          </button>
+
           {/* ADMIN BUTTON */}
           {isAdmin && (
             <button 
@@ -618,6 +626,77 @@ export default function Home() {
             )}
           </div>
         </>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* 💬 CONTACT SUPPORT SEPARATE TAB */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === "support" && (
+        <div style={{ maxWidth: '650px', margin: '20px auto', backgroundColor: '#161e2e', padding: '36px', borderRadius: '20px', border: '1px solid #38bdf8' }}>
+          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+            <span style={{ fontSize: '36px' }}>💬</span>
+            <h1 style={{ fontSize: '26px', margin: '8px 0 0 0', color: '#f8fafc', fontWeight: '800' }}>Contact Support Team</h1>
+            <p style={{ color: '#94a3b8', fontSize: '14px', margin: '6px 0 0 0' }}>Have a question or facing an issue? Send us a ticket directly.</p>
+          </div>
+
+          {supportSubmitted ? (
+            <div style={{ backgroundColor: '#064e3b', padding: '24px', borderRadius: '14px', color: '#34d399', textAlign: 'center', border: '1px solid #059669' }}>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '20px' }}>✅ Support Ticket Received!</h3>
+              <p style={{ margin: 0, fontSize: '14px', color: '#cbd5e1', lineHeight: '1.5' }}>Our support team will review your query and reach back out to your provided email shortly.</p>
+              <button 
+                onClick={() => setSupportSubmitted(false)}
+                style={{ backgroundColor: '#10b981', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '16px', fontSize: '13px' }}
+              >
+                Send Another Ticket 📩
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSupportSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', color: '#cbd5e1', marginBottom: '6px', fontWeight: 'bold' }}>Your Email Address</label>
+                <input 
+                  type="email" 
+                  required 
+                  placeholder="name@example.com"
+                  value={supportEmail}
+                  onChange={(e) => setSupportEmail(e.target.value)}
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid #334155', backgroundColor: '#0b0f19', color: 'white', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', color: '#cbd5e1', marginBottom: '6px', fontWeight: 'bold' }}>Subject / Topic (Optional)</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Issue with download link, Crypto Payment, Seller inquiry..."
+                  value={supportSubject}
+                  onChange={(e) => setSupportSubject(e.target.value)}
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid #334155', backgroundColor: '#0b0f19', color: 'white', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', color: '#cbd5e1', marginBottom: '6px', fontWeight: 'bold' }}>Your Problem / Detailed Message</label>
+                <textarea 
+                  rows="5" 
+                  required 
+                  placeholder="Explain your problem or question clearly..."
+                  value={supportMessage}
+                  onChange={(e) => setSupportMessage(e.target.value)}
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid #334155', backgroundColor: '#0b0f19', color: 'white', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={supportLoading}
+                style={{ backgroundColor: supportLoading ? '#0284c7' : '#38bdf8', color: '#0f172a', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '16px', marginTop: '6px' }}
+              >
+                {supportLoading ? "Submitting Ticket..." : "Submit Support Request 🚀"}
+              </button>
+            </form>
+          )}
+        </div>
       )}
 
       {/* ------------------------------------------------------------- */}
@@ -926,77 +1005,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* 💬 CONTACT SUPPORT FOOTER SECTION */}
-      {/* ------------------------------------------------------------- */}
-      <footer style={{ maxWidth: '1100px', margin: '60px auto 20px auto', borderTop: '1px solid #243045', paddingTop: '40px' }}>
-        <div style={{ maxWidth: '650px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #334155' }}>
-          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-            <span style={{ fontSize: '28px' }}>💬</span>
-            <h2 style={{ fontSize: '22px', margin: '6px 0 0 0', color: '#f8fafc' }}>Need Help or Have Questions?</h2>
-            <p style={{ color: '#94a3b8', fontSize: '13px', margin: '4px 0 0 0' }}>Write your query below and our team will respond directly to your email.</p>
-          </div>
-
-          {supportSubmitted ? (
-            <div style={{ backgroundColor: '#064e3b', padding: '20px', borderRadius: '12px', color: '#34d399', textAlign: 'center', border: '1px solid #059669' }}>
-              <h4 style={{ margin: '0 0 6px 0', fontSize: '18px' }}>✅ Support Ticket Received!</h4>
-              <p style={{ margin: 0, fontSize: '13px', color: '#cbd5e1' }}>Admin team will review your message in the dashboard and get back to you shortly.</p>
-              <button 
-                onClick={() => setSupportSubmitted(false)}
-                style={{ backgroundColor: '#10b981', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '12px', fontSize: '12px' }}
-              >
-                Send Another Message
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSupportSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px', fontWeight: 'bold' }}>Your Email Address</label>
-                <input 
-                  type="email" 
-                  required 
-                  placeholder="name@example.com"
-                  value={supportEmail}
-                  onChange={(e) => setSupportEmail(e.target.value)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#0b0f19', color: 'white', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px', fontWeight: 'bold' }}>Subject / Topic (Optional)</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Issue with download link, Payment query, Seller request..."
-                  value={supportSubject}
-                  onChange={(e) => setSupportSubject(e.target.value)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#0b0f19', color: 'white', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px', fontWeight: 'bold' }}>Your Problem / Message</label>
-                <textarea 
-                  rows="4" 
-                  required 
-                  placeholder="Type your message or issue in detail..."
-                  value={supportMessage}
-                  onChange={(e) => setSupportMessage(e.target.value)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#0b0f19', color: 'white', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <button 
-                type="submit" 
-                disabled={supportLoading}
-                style={{ backgroundColor: supportLoading ? '#0284c7' : '#38bdf8', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', fontSize: '15px' }}
-              >
-                {supportLoading ? "Sending to Admin..." : "Submit Support Request 📩"}
-              </button>
-            </form>
-          )}
-        </div>
-
-        <p style={{ textAlign: 'center', color: '#64748b', fontSize: '12px', marginTop: '30px' }}>
+      {/* FOOTER */}
+      <footer style={{ maxWidth: '1100px', margin: '60px auto 20px auto', borderTop: '1px solid #243045', paddingTop: '20px', textAlign: 'center' }}>
+        <p style={{ color: '#64748b', fontSize: '12px' }}>
           © CodeHub AI Marketplace. Powered by Supabase & NOWPayments.
         </p>
       </footer>
