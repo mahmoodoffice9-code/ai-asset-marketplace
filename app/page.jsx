@@ -59,6 +59,9 @@ export default function Home() {
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
   const [creatingPayment, setCreatingPayment] = useState(false);
 
+  // 👛 WALLET SELECTION STATE
+  const [selectedWallet, setSelectedWallet] = useState("");
+
   // Withdraw State
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [withdrawMsg, setWithdrawMsg] = useState("");
@@ -414,6 +417,7 @@ export default function Home() {
   const createNowPayment = async (asset) => {
     setViewingAsset(null); // Close Detail Modal if open
     setSelectedAsset(asset);
+    setSelectedWallet(""); // Reset wallet selection
     setPaymentSubmitted(false);
     setPaymentData(null);
     setCreatingPayment(true);
@@ -448,6 +452,41 @@ export default function Home() {
     }
   };
 
+  // 👛 REDIRECT USER TO WALLET FOR DIRECT PAYMENT
+  const handleOpenWalletAndPay = () => {
+    if (!paymentData || !paymentData.pay_address) return;
+
+    // Address and BNB Amount
+    const address = paymentData.pay_address;
+    const amount = paymentData.pay_amount;
+
+    // Clipboard copy backup
+    navigator.clipboard?.writeText?.(address);
+
+    let redirectUrl = "";
+
+    switch (selectedWallet) {
+      case "metamask":
+        redirectUrl = `https://metamask.app.link/send/${address}@56?value=${amount}`;
+        break;
+      case "trustwallet":
+        redirectUrl = `https://link.trustwallet.com/send?asset=c714&address=${address}&amount=${amount}`;
+        break;
+      case "binance":
+        redirectUrl = `https://www.binance.com/en/web3wallet`;
+        break;
+      case "coinbase":
+        redirectUrl = `https://go.cb-w.com/pay?address=${address}`;
+        break;
+      default:
+        // Generic fallback / Copy & open web
+        redirectUrl = `https://bscscan.com/address/${address}`;
+        break;
+    }
+
+    window.open(redirectUrl, "_blank");
+  };
+
   const recordPurchase = async (asset, paymentDetails) => {
     const now = new Date();
     const formattedDate = now.toLocaleDateString("en-US", {
@@ -467,7 +506,7 @@ export default function Home() {
       category: asset.category,
       price: asset.price,
       currency: "BNB (BEP-20)",
-      paymentMethod: "Crypto (NOWPayments / BNB BSC)",
+      paymentMethod: `Crypto (${selectedWallet ? selectedWallet.toUpperCase() : "Wallet"} / BNB BSC)`,
       fileUrl: asset.file_url,
       date: formattedDate,
       time: formattedTime,
@@ -1076,7 +1115,7 @@ export default function Home() {
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* CHECKOUT MODAL VIEW */}
+      {/* CHECKOUT MODAL VIEW (WITH WALLET SELECTION) */}
       {/* ------------------------------------------------------------- */}
       {selectedAsset && (
         <div style={{ maxWidth: '650px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #38bdf8' }}>
@@ -1111,11 +1150,58 @@ export default function Home() {
             </div>
           ) : paymentData ? (
             <div>
-              <p style={{ color: '#94a3b8', fontSize: '13px' }}>Send exactly <strong>{paymentData.pay_amount} BNB</strong> (BEP-20) to this address:</p>
-              <input type="text" readOnly value={paymentData.pay_address} style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', color: '#f59e0b', borderRadius: '8px', border: '1px solid #334155', fontWeight: 'bold', marginBottom: '15px' }} />
-              <button onClick={verifyNowPaymentStatus} disabled={verifyingPayment} style={{ width: '100%', backgroundColor: '#10b981', color: '#0f172a', padding: '14px', borderRadius: '10px', fontWeight: '800', border: 'none', cursor: 'pointer' }}>
-                {verifyingPayment ? "Checking Blockchain..." : "I Have Paid — Verify Status 🚀"}
-              </button>
+              {/* 👛 STEP 1: SELECT WALLET */}
+              <div style={{ marginBottom: '20px', backgroundColor: '#0b0f19', padding: '18px', borderRadius: '12px', border: '1px solid #243045' }}>
+                <label style={{ display: 'block', color: '#38bdf8', fontWeight: '800', fontSize: '14px', marginBottom: '8px' }}>
+                  1️⃣ Select Your Crypto Wallet:
+                </label>
+                <select 
+                  value={selectedWallet} 
+                  onChange={(e) => setSelectedWallet(e.target.value)}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #334155', backgroundColor: '#161e2e', color: 'white', fontSize: '14px', fontWeight: '600', outline: 'none' }}
+                >
+                  <option value="">-- Choose Your Wallet --</option>
+                  <option value="metamask">🦊 MetaMask</option>
+                  <option value="trustwallet">🛡️ Trust Wallet</option>
+                  <option value="binance">🟡 Binance Web3 / App</option>
+                  <option value="coinbase">🔵 Coinbase Wallet</option>
+                  <option value="other">📱 Other Wallet (Manual Copy)</option>
+                </select>
+              </div>
+
+              {/* DETAILS & PAY BUTTON SHOWS ONLY WHEN WALLET IS SELECTED */}
+              {selectedWallet ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  <div style={{ backgroundColor: '#0f172a', padding: '14px', borderRadius: '10px', border: '1px solid #334155' }}>
+                    <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 4px 0' }}>Exact Payable Amount:</p>
+                    <p style={{ color: '#f59e0b', fontSize: '18px', fontWeight: '800', margin: 0 }}>{paymentData.pay_amount} BNB</p>
+                    <p style={{ color: '#94a3b8', fontSize: '11px', margin: '6px 0 0 0', fontFamily: 'monospace', wordBreak: 'break-all' }}>Target Address: {paymentData.pay_address}</p>
+                  </div>
+
+                  {/* ⚡ PAY BUTTON TO OPEN SELECTED WALLET */}
+                  <button 
+                    onClick={handleOpenWalletAndPay} 
+                    style={{ width: '100%', backgroundColor: '#f59e0b', color: '#0f172a', padding: '14px', borderRadius: '10px', fontWeight: '800', border: 'none', cursor: 'pointer', fontSize: '16px' }}
+                  >
+                    🚀 Pay Now via {selectedWallet.toUpperCase()}
+                  </button>
+
+                  <hr style={{ borderColor: '#243045', margin: '10px 0' }} />
+
+                  {/* VERIFY PAYMENT BUTTON */}
+                  <button 
+                    onClick={verifyNowPaymentStatus} 
+                    disabled={verifyingPayment} 
+                    style={{ width: '100%', backgroundColor: '#10b981', color: '#0f172a', padding: '14px', borderRadius: '10px', fontWeight: '800', border: 'none', cursor: 'pointer', fontSize: '15px' }}
+                  >
+                    {verifyingPayment ? "Checking Blockchain..." : "I Have Paid — Verify Status ✅"}
+                  </button>
+                </div>
+              ) : (
+                <p style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', marginTop: '10px' }}>
+                  👆 Above dropdown se pehle apna wallet select karein taake Pay ka button enable ho jaye.
+                </p>
+              )}
             </div>
           ) : null}
         </div>
