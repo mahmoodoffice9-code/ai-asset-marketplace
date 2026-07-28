@@ -38,6 +38,8 @@ export default function Home() {
   const [userAssets, setUserAssets] = useState([]);
   const [purchasedHistory, setPurchasedHistory] = useState([]);
   const [sellerSalesHistory, setSellerSalesHistory] = useState([]);
+  const [allSalesForAdmin, setAllSalesForAdmin] = useState([]);
+  const [payoutsHistory, setPayoutsHistory] = useState([]);
   const [supportTickets, setSupportTickets] = useState([]);
   const [user, setUser] = useState(null);
   
@@ -59,6 +61,15 @@ export default function Home() {
   // Withdraw State
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [withdrawMsg, setWithdrawMsg] = useState("");
+
+  // Admin Date Filter State
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  // Admin Payout Process Form State
+  const [payoutSellerEmail, setPayoutSellerEmail] = useState("");
+  const [payoutAmount, setPayoutAmount] = useState("");
+  const [payoutTxHash, setPayoutTxHash] = useState("");
 
   // Support Form State
   const [supportEmail, setSupportEmail] = useState("");
@@ -104,6 +115,8 @@ export default function Home() {
         if (cleanEmail === ADMIN_EMAIL) {
           fetchAllAssetsAdmin();
           fetchSupportTicketsAdmin();
+          fetchAllSalesAdmin();
+          fetchPayoutsAdmin();
         }
       }
     });
@@ -124,6 +137,8 @@ export default function Home() {
       if (cleanEmail === ADMIN_EMAIL) {
         fetchAllAssetsAdmin();
         fetchSupportTicketsAdmin();
+        fetchAllSalesAdmin();
+        fetchPayoutsAdmin();
       }
     }
   };
@@ -154,6 +169,8 @@ export default function Home() {
       if (cleanEmail === ADMIN_EMAIL) {
         fetchAllAssetsAdmin();
         fetchSupportTicketsAdmin();
+        fetchAllSalesAdmin();
+        fetchPayoutsAdmin();
         setActiveTab("admin");
       } else {
         setActiveTab("marketplace");
@@ -202,6 +219,28 @@ export default function Home() {
 
     if (!error && data) {
       setSupportTickets(data);
+    }
+  };
+
+  const fetchAllSalesAdmin = async () => {
+    const { data, error } = await supabase
+      .from("sales_orders")
+      .select("*")
+      .order("id", { ascending: false });
+
+    if (!error && data) {
+      setAllSalesForAdmin(data);
+    }
+  };
+
+  const fetchPayoutsAdmin = async () => {
+    const { data, error } = await supabase
+      .from("payouts")
+      .select("*")
+      .order("id", { ascending: false });
+
+    if (!error && data) {
+      setPayoutsHistory(data);
     }
   };
 
@@ -271,6 +310,32 @@ export default function Home() {
       alert("Asset deleted successfully!");
       fetchAllAssetsAdmin();
       fetchApprovedAssets();
+    }
+  };
+
+  const handleRecordPayout = async (e) => {
+    e.preventDefault();
+    if (!payoutSellerEmail || !payoutAmount) {
+      alert("Please enter seller email and payout amount!");
+      return;
+    }
+
+    const { error } = await supabase.from("payouts").insert([
+      {
+        seller_email: payoutSellerEmail.trim().toLowerCase(),
+        amount: parseFloat(payoutAmount),
+        tx_hash: payoutTxHash || "Manual / On-chain",
+      }
+    ]);
+
+    if (error) {
+      alert("Failed to record payout: " + error.message);
+    } else {
+      alert("✅ Payout Recorded Successfully!");
+      setPayoutSellerEmail("");
+      setPayoutAmount("");
+      setPayoutTxHash("");
+      fetchPayoutsAdmin();
     }
   };
 
@@ -440,7 +505,7 @@ export default function Home() {
     }
   };
 
-  // Derived Utilities
+  // Derived Utilities & Calculations
   const userEmailClean = user && user.email ? user.email.trim().toLowerCase() : "";
   const isAdmin = userEmailClean === ADMIN_EMAIL;
 
@@ -449,6 +514,42 @@ export default function Home() {
   const pendingAssetsCount = userAssets.filter(a => a.status === 'pending').length;
   const totalSalesCount = sellerSalesHistory.length;
   const totalRevenue = sellerSalesHistory.reduce((acc, curr) => acc + Number(curr.price || 0), 0);
+
+  // -------------------------------------------------------------
+  // ADMIN FINANCIAL CALCULATIONS
+  // -------------------------------------------------------------
+  const now = new Date();
+  const todayStr = now.toISOString().split("T")[0];
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+  const totalAdminRevenue = allSalesForAdmin.reduce((sum, item) => sum + Number(item.price || 0), 0);
+  const platformFeePercentage = 0.10; // 10% platform commission fee
+  const totalProfit = totalAdminRevenue * platformFeePercentage;
+
+  const totalPaidOut = payoutsHistory.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const sellerOwedShare = totalAdminRevenue * (1 - platformFeePercentage);
+  const remainingPayoutOwed = Math.max(0, sellerOwedShare - totalPaidOut);
+
+  // Today Sales & Revenue
+  const todaySales = allSalesForAdmin.filter(s => s.created_at && s.created_at.startsWith(todayStr));
+  const todayRevenue = todaySales.reduce((sum, item) => sum + Number(item.price || 0), 0);
+
+  // Yesterday Sales & Revenue
+  const yesterdaySales = allSalesForAdmin.filter(s => s.created_at && s.created_at.startsWith(yesterdayStr));
+  const yesterdayRevenue = yesterdaySales.reduce((sum, item) => sum + Number(item.price || 0), 0);
+
+  // Custom Date Range Sales & Revenue
+  const customDateSales = allSalesForAdmin.filter(s => {
+    if (!s.created_at) return false;
+    const saleDate = s.created_at.split("T")[0];
+    if (startDate && saleDate < startDate) return false;
+    if (endDate && saleDate > endDate) return false;
+    return true;
+  });
+  const customDateRevenue = customDateSales.reduce((sum, item) => sum + Number(item.price || 0), 0);
 
   const filteredAssets = assets.filter((item) => {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -522,7 +623,7 @@ export default function Home() {
           {/* ADMIN BUTTON */}
           {isAdmin && (
             <button 
-              onClick={() => { setActiveTab("admin"); fetchAllAssetsAdmin(); fetchSupportTicketsAdmin(); }}
+              onClick={() => { setActiveTab("admin"); fetchAllAssetsAdmin(); fetchSupportTicketsAdmin(); fetchAllSalesAdmin(); fetchPayoutsAdmin(); }}
               style={{ backgroundColor: activeTab === "admin" ? "#dc2626" : "#991b1b", color: "white", border: "none", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "800", boxShadow: "0 0 10px rgba(220, 38, 38, 0.5)" }}
             >
               👑 Admin Panel
@@ -892,10 +993,89 @@ export default function Home() {
       {/* 👑 ADMIN MASTER CONTROL PANEL */}
       {/* ------------------------------------------------------------- */}
       {activeTab === "admin" && isAdmin && (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #ef4444' }}>
-          <h1 style={{ fontSize: '26px', margin: '0 0 20px 0', color: '#f87171' }}>👑 Admin Master Control Panel</h1>
+        <div style={{ maxWidth: '1050px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #ef4444' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
+            <h1 style={{ fontSize: '26px', margin: 0, color: '#f87171' }}>👑 Admin Master Control Panel</h1>
+            <button onClick={() => { fetchAllAssetsAdmin(); fetchSupportTicketsAdmin(); fetchAllSalesAdmin(); fetchPayoutsAdmin(); }} style={{ backgroundColor: '#0f172a', color: '#38bdf8', border: '1px solid #334155', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>🔄 Refresh All Analytics</button>
+          </div>
 
-          {/* SECTION 1: ASSET APPROVALS */}
+          {/* 📊 SECTION 1: MASTER FINANCIAL ANALYTICS DASHBOARD */}
+          <div style={{ marginBottom: '40px', backgroundColor: '#0b0f19', padding: '24px', borderRadius: '16px', border: '1px solid #243045' }}>
+            <h3 style={{ color: '#38bdf8', margin: '0 0 20px 0', borderBottom: '1px solid #1e293b', paddingBottom: '10px' }}>💰 Platform Financial Overview</h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '25px' }}>
+              <div style={{ backgroundColor: '#161e2e', padding: '18px', borderRadius: '12px', border: '1px solid #334155' }}>
+                <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Gross Revenue</p>
+                <h2 style={{ color: '#10b981', margin: 0, fontSize: '26px', fontWeight: '800' }}>${totalAdminRevenue} <span style={{ fontSize: '12px', color: '#64748b' }}>USD</span></h2>
+              </div>
+
+              <div style={{ backgroundColor: '#161e2e', padding: '18px', borderRadius: '12px', border: '1px solid #334155' }}>
+                <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Platform Profit (10% Cut)</p>
+                <h2 style={{ color: '#c084fc', margin: 0, fontSize: '26px', fontWeight: '800' }}>${totalProfit.toFixed(2)} <span style={{ fontSize: '12px', color: '#64748b' }}>USD</span></h2>
+              </div>
+
+              <div style={{ backgroundColor: '#161e2e', padding: '18px', borderRadius: '12px', border: '1px solid #334155' }}>
+                <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Paid Out to Sellers</p>
+                <h2 style={{ color: '#38bdf8', margin: 0, fontSize: '26px', fontWeight: '800' }}>${totalPaidOut} <span style={{ fontSize: '12px', color: '#64748b' }}>USD</span></h2>
+              </div>
+
+              <div style={{ backgroundColor: '#161e2e', padding: '18px', borderRadius: '12px', border: '1px solid #334155' }}>
+                <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Pending Payout Owed</p>
+                <h2 style={{ color: '#f59e0b', margin: 0, fontSize: '26px', fontWeight: '800' }}>${remainingPayoutOwed.toFixed(2)} <span style={{ fontSize: '12px', color: '#64748b' }}>USD</span></h2>
+              </div>
+            </div>
+
+            {/* DAILY & DATE RANGE BREAKDOWNS */}
+            <h4 style={{ color: '#cbd5e1', margin: '20px 0 12px 0' }}>📅 Sales Breakdown by Timeline</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '25px' }}>
+              <div style={{ backgroundColor: '#161e2e', padding: '16px', borderRadius: '12px', border: '1px solid #243045' }}>
+                <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 4px 0', fontWeight: 'bold' }}>Today's Sales ☀️</p>
+                <h3 style={{ color: '#f8fafc', margin: '0 0 4px 0', fontSize: '22px' }}>${todayRevenue} USD</h3>
+                <span style={{ fontSize: '12px', color: '#38bdf8' }}>{todaySales.length} Orders Today</span>
+              </div>
+
+              <div style={{ backgroundColor: '#161e2e', padding: '16px', borderRadius: '12px', border: '1px solid #243045' }}>
+                <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 4px 0', fontWeight: 'bold' }}>Yesterday's Sales 🌙</p>
+                <h3 style={{ color: '#f8fafc', margin: '0 0 4px 0', fontSize: '22px' }}>${yesterdayRevenue} USD</h3>
+                <span style={{ fontSize: '12px', color: '#38bdf8' }}>{yesterdaySales.length} Orders Yesterday</span>
+              </div>
+            </div>
+
+            {/* CUSTOM DATE RANGE CALCULATOR */}
+            <div style={{ backgroundColor: '#161e2e', padding: '18px', borderRadius: '12px', border: '1px solid #243045' }}>
+              <h4 style={{ color: '#f8fafc', margin: '0 0 12px 0', fontSize: '14px' }}>🔍 Custom Date Range Filter</h4>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Start Date</label>
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ backgroundColor: '#0b0f19', color: 'white', border: '1px solid #334155', padding: '8px', borderRadius: '6px', fontSize: '13px' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>End Date</label>
+                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ backgroundColor: '#0b0f19', color: 'white', border: '1px solid #334155', padding: '8px', borderRadius: '6px', fontSize: '13px' }} />
+                </div>
+                <div style={{ marginTop: '16px' }}>
+                  <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '16px', marginLeft: '10px' }}>
+                    Filtered Revenue: ${customDateRevenue} USD ({customDateSales.length} Sales)
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 💸 SECTION 2: RECORD SELLER PAYOUT FORM */}
+          <div style={{ marginBottom: '40px', backgroundColor: '#0b0f19', padding: '24px', borderRadius: '16px', border: '1px solid #243045' }}>
+            <h3 style={{ color: '#10b981', margin: '0 0 12px 0' }}>💸 Record Seller Payout (Manual Tracker)</h3>
+            <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 16px 0' }}>When you transfer BNB/USDT to a seller, log it here so your "Pending Payout Owed" stats update automatically.</p>
+
+            <form onSubmit={handleRecordPayout} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <input type="email" required placeholder="Seller Email..." value={payoutSellerEmail} onChange={(e) => setPayoutSellerEmail(e.target.value)} style={{ flex: '1', minWidth: '200px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#161e2e', color: 'white', fontSize: '13px' }} />
+              <input type="number" step="0.01" required placeholder="Amount Paid ($ USD)" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} style={{ width: '160px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#161e2e', color: 'white', fontSize: '13px' }} />
+              <input type="text" placeholder="TX Hash / Note (Optional)" value={payoutTxHash} onChange={(e) => setPayoutTxHash(e.target.value)} style={{ flex: '1', minWidth: '180px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#161e2e', color: 'white', fontSize: '13px' }} />
+              <button type="submit" style={{ backgroundColor: '#10b981', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer' }}>Record Payout 🚀</button>
+            </form>
+          </div>
+
+          {/* SECTION 3: ASSET APPROVALS */}
           <div style={{ marginBottom: '40px' }}>
             <h3 style={{ color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '8px' }}>📂 Pending & Active Asset Approvals</h3>
             {allAssetsForAdmin.map((item) => (
@@ -912,7 +1092,7 @@ export default function Home() {
             ))}
           </div>
 
-          {/* SECTION 2: 📩 SUPPORT TICKETS IN ADMIN PANEL */}
+          {/* SECTION 4: 📩 SUPPORT TICKETS IN ADMIN PANEL */}
           <div>
             <h3 style={{ color: '#f59e0b', borderBottom: '1px solid #334155', paddingBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>📩 Support Messages / Tickets Inbox ({supportTickets.length})</span>
