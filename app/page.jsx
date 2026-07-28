@@ -13,6 +13,14 @@ const ADMIN_EMAIL = "mahmoodoffice9@gmail.com";
 // 💳 NOWPayments API Key
 const NOWPAYMENTS_API_KEY = "6CWDKGC-RMHMG9K-Q9HB8F3-YG0SCAQ";
 
+// 💡 Category-wise Instructions Map
+const categoryInstructions = {
+  "n8n Workflow": "💡 n8n Guide: Open your n8n workflow ➔ Click top-right 3 dots ➔ 'Export' JSON file. Upload that file to Google Drive / GitHub and paste the shareable link (Ensure access is set to 'Anyone with link').",
+  "Make.com Flow": "💡 Make.com Guide: Open your Scenario ➔ Click Options (...) at bottom ➔ 'Export Blueprint'. Upload JSON file to Google Drive and paste the public link here.",
+  "AI Agent": "💡 AI Agent Guide: Bundle your prompt template, API integration guide, or python code into a .zip file or GitHub Repository. Paste the public download link here.",
+  "Micro-SaaS": "💡 Micro-SaaS Guide: Provide a GitHub repo link or a .zip archive link hosted on Drive/Dropbox containing the codebase and README.md setup guide."
+};
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState("marketplace");
   const [submitted, setSubmitted] = useState(false);
@@ -120,7 +128,7 @@ export default function Home() {
     setAuthMsg("");
   };
 
-  // 🔥 FETCH ONLY APPROVED ASSETS (Case-insensitive match & cache-busting)
+  // FETCH ONLY APPROVED ASSETS
   const fetchApprovedAssets = async () => {
     const { data, error } = await supabase
       .from("products")
@@ -160,7 +168,7 @@ export default function Home() {
     }
   };
 
-  // 👑 ADMIN APPROVE / REJECT HANDLER (FIXED FOR INSTANT PUBLISH)
+  // 👑 ADMIN APPROVE / REJECT HANDLER
   const handleUpdateStatus = async (id, newStatus) => {
     const { data, error } = await supabase
       .from("products")
@@ -172,7 +180,6 @@ export default function Home() {
       alert("Error updating status: " + error.message);
     } else {
       alert(`✅ Asset is now ${newStatus.toUpperCase()} and live on Marketplace! 🔥`);
-      // Refresh both states immediately
       await fetchAllAssetsAdmin();
       await fetchApprovedAssets();
       if (user) {
@@ -819,6 +826,11 @@ export default function Home() {
                   <option value="AI Agent">AI Agent</option>
                   <option value="Micro-SaaS">Micro-SaaS / Codebase</option>
                 </select>
+
+                {/* 🔥 DYNAMIC INSTRUCTIONS BOX */}
+                <div style={{ marginTop: "10px", padding: "12px 16px", backgroundColor: "#0b0f19", border: "1px dashed #38bdf8", borderRadius: "8px", fontSize: "12px", color: "#38bdf8", lineHeight: "1.5" }}>
+                  {categoryInstructions[formData.category]}
+                </div>
               </div>
 
               <div>
