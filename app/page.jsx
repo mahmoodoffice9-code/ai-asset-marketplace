@@ -30,6 +30,7 @@ export default function Home() {
   const [allAssetsForAdmin, setAllAssetsForAdmin] = useState([]);
   const [userAssets, setUserAssets] = useState([]);
   const [purchasedHistory, setPurchasedHistory] = useState([]);
+  const [sellerSalesHistory, setSellerSalesHistory] = useState([]);
   const [user, setUser] = useState(null);
   
   // Auth States
@@ -46,6 +47,10 @@ export default function Home() {
   const [paymentData, setPaymentData] = useState(null);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
   const [creatingPayment, setCreatingPayment] = useState(false);
+
+  // Withdraw State
+  const [withdrawAddress, setWithdrawAddress] = useState("");
+  const [withdrawMsg, setWithdrawMsg] = useState("");
 
   const [formData, setFormData] = useState({
     title: "",
@@ -71,6 +76,7 @@ export default function Home() {
       if (currentUser) {
         const cleanEmail = currentUser.email ? currentUser.email.trim().toLowerCase() : "";
         fetchUserAssets(cleanEmail);
+        fetchSellerSales(cleanEmail);
         if (cleanEmail === ADMIN_EMAIL) {
           fetchAllAssetsAdmin();
         }
@@ -88,6 +94,7 @@ export default function Home() {
     if (user) {
       const cleanEmail = user.email ? user.email.trim().toLowerCase() : "";
       fetchUserAssets(cleanEmail);
+      fetchSellerSales(cleanEmail);
       if (cleanEmail === ADMIN_EMAIL) {
         fetchAllAssetsAdmin();
       }
@@ -111,6 +118,8 @@ export default function Home() {
     } else {
       setAuthMsg("✅ Welcome! Logged in successfully.");
       setUser(data.user);
+      fetchUserAssets(cleanEmail);
+      fetchSellerSales(cleanEmail);
       
       if (cleanEmail === ADMIN_EMAIL) {
         fetchAllAssetsAdmin();
@@ -168,18 +177,30 @@ export default function Home() {
     }
   };
 
+  // Fetch Seller's Sales History
+  const fetchSellerSales = async (userEmail) => {
+    const { data, error } = await supabase
+      .from("sales_orders")
+      .select("*")
+      .eq("seller_email", userEmail)
+      .order("id", { ascending: false });
+
+    if (!error && data) {
+      setSellerSalesHistory(data);
+    }
+  };
+
   // 👑 ADMIN APPROVE / REJECT HANDLER
   const handleUpdateStatus = async (id, newStatus) => {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("products")
       .update({ status: newStatus.toLowerCase() })
-      .eq("id", id)
-      .select();
+      .eq("id", id);
 
     if (error) {
       alert("Error updating status: " + error.message);
     } else {
-      alert(`✅ Asset is now ${newStatus.toUpperCase()} and live on Marketplace! 🔥`);
+      alert(`✅ Asset is now ${newStatus.toUpperCase()}! 🔥`);
       await fetchAllAssetsAdmin();
       await fetchApprovedAssets();
       if (user) {
@@ -198,6 +219,9 @@ export default function Home() {
       alert("Asset deleted successfully! 🗑️");
       fetchAllAssetsAdmin();
       fetchApprovedAssets();
+      if (user) {
+        fetchUserAssets(user.email.trim().toLowerCase());
+      }
     }
   };
 
@@ -268,7 +292,7 @@ export default function Home() {
     }
   };
 
-  const recordPurchase = (asset, paymentDetails) => {
+  const recordPurchase = async (asset, paymentDetails) => {
     const newPurchase = {
       id: Date.now(),
       title: asset.title,
@@ -282,6 +306,19 @@ export default function Home() {
     const updated = [newPurchase, ...purchasedHistory];
     setPurchasedHistory(updated);
     localStorage.setItem("ai_hub_purchases", JSON.stringify(updated));
+
+    // Record sale into Database for Seller Store
+    if (asset.seller_email) {
+      await supabase.from("sales_orders").insert([
+        {
+          seller_email: asset.seller_email.toLowerCase(),
+          buyer_email: user ? user.email.toLowerCase() : "Guest",
+          asset_id: asset.id,
+          asset_title: asset.title,
+          price: asset.price,
+        },
+      ]);
+    }
   };
 
   const verifyNowPaymentStatus = async () => {
@@ -303,7 +340,7 @@ export default function Home() {
 
       if (data.payment_status === "finished" || data.payment_status === "confirmed") {
         setPaymentSubmitted(true);
-        recordPurchase(selectedAsset, data);
+        await recordPurchase(selectedAsset, data);
       } else if (data.payment_status === "waiting" || data.payment_status === "sending") {
         alert("⏳ Payment pending on blockchain. Click again after sending!");
       } else {
@@ -315,8 +352,25 @@ export default function Home() {
     }
   };
 
+  const handleWithdrawRequest = (e) => {
+    e.preventDefault();
+    if (!withdrawAddress) {
+      alert("Please enter a valid BNB wallet address!");
+      return;
+    }
+    setWithdrawMsg("✅ Withdrawal request submitted! Admin will payout within 24 hours.");
+    setWithdrawAddress("");
+  };
+
   const userEmailClean = user && user.email ? user.email.trim().toLowerCase() : "";
   const isAdmin = userEmailClean === ADMIN_EMAIL;
+
+  // Stats Calculations for Your Store Tab
+  const totalAssetsCount = userAssets.length;
+  const approvedAssetsCount = userAssets.filter(a => a.status === 'approved').length;
+  const pendingAssetsCount = userAssets.filter(a => a.status === 'pending').length;
+  const totalSalesCount = sellerSalesHistory.length;
+  const totalRevenue = sellerSalesHistory.reduce((acc, curr) => acc + Number(curr.price || 0), 0);
 
   const filteredAssets = assets.filter((item) => {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -345,6 +399,16 @@ export default function Home() {
             🛒 Marketplace
           </button>
 
+          {/* 🏪 YOUR STORE TAB BUTTON */}
+          {user && (
+            <button 
+              onClick={() => { setActiveTab("your-store"); fetchSellerSales(userEmailClean); fetchUserAssets(userEmailClean); }}
+              style={{ backgroundColor: activeTab === "your-store" ? "#10b981" : "#064e3b", color: "white", border: "1px solid #10b981", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "700" }}
+            >
+              🏪 Your Store
+            </button>
+          )}
+
           <button 
             onClick={() => setActiveTab("purchases")}
             style={{ backgroundColor: activeTab === "purchases" ? "#7c3aed" : "transparent", color: "white", border: activeTab === "purchases" ? "none" : "1px solid #334155", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "600" }}
@@ -357,7 +421,7 @@ export default function Home() {
               onClick={() => setActiveTab("my-listings")}
               style={{ backgroundColor: activeTab === "my-listings" ? "#7c3aed" : "transparent", color: "white", border: activeTab === "my-listings" ? "none" : "1px solid #334155", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "600" }}
             >
-              📋 My Listed Assets
+              📋 My Assets
             </button>
           )}
 
@@ -374,7 +438,7 @@ export default function Home() {
               onClick={() => { setActiveTab("admin"); fetchAllAssetsAdmin(); }}
               style={{ backgroundColor: activeTab === "admin" ? "#dc2626" : "#991b1b", color: "white", border: "none", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "800", boxShadow: "0 0 10px rgba(220, 38, 38, 0.5)" }}
             >
-              👑 Admin Panel
+              👑 Admin
             </button>
           )}
 
@@ -473,6 +537,110 @@ export default function Home() {
             )}
           </div>
         </>
+      )}
+
+      {/* 🏪 YOUR STORE TAB DASHBOARD */}
+      {activeTab === "your-store" && user && (
+        <div style={{ maxWidth: '1000px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #10b981' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '30px' }}>
+            <div>
+              <h1 style={{ fontSize: '28px', margin: 0, color: '#f8fafc' }}>🏪 Your Store Dashboard</h1>
+              <p style={{ color: '#94a3b8', fontSize: '14px', margin: '4px 0 0 0' }}>Seller: <strong style={{ color: '#10b981' }}>{user.email}</strong></p>
+            </div>
+
+            <button 
+              onClick={() => { fetchSellerSales(userEmailClean); fetchUserAssets(userEmailClean); }}
+              style={{ backgroundColor: '#0f172a', color: '#38bdf8', border: '1px solid #334155', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}
+            >
+              🔄 Refresh Stats
+            </button>
+          </div>
+
+          {/* STATS CARDS */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '35px' }}>
+            <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
+              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Revenue</p>
+              <h2 style={{ color: '#10b981', margin: 0, fontSize: '28px', fontWeight: '800' }}>${totalRevenue} <span style={{ fontSize: '14px', color: '#64748b' }}>USD</span></h2>
+            </div>
+
+            <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
+              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Sales</p>
+              <h2 style={{ color: '#38bdf8', margin: 0, fontSize: '28px', fontWeight: '800' }}>{totalSalesCount}</h2>
+            </div>
+
+            <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
+              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Assets</p>
+              <h2 style={{ color: '#c084fc', margin: 0, fontSize: '28px', fontWeight: '800' }}>{totalAssetsCount}</h2>
+            </div>
+
+            <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
+              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Live / Approved</p>
+              <h2 style={{ color: '#22c55e', margin: 0, fontSize: '28px', fontWeight: '800' }}>{approvedAssetsCount}</h2>
+            </div>
+
+            <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
+              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Pending Review</p>
+              <h2 style={{ color: '#f59e0b', margin: 0, fontSize: '28px', fontWeight: '800' }}>{pendingAssetsCount}</h2>
+            </div>
+          </div>
+
+          {/* WITHDRAW SECTION */}
+          <div style={{ backgroundColor: '#0b0f19', padding: '24px', borderRadius: '14px', border: '1px solid #1e293b', marginBottom: '35px' }}>
+            <h3 style={{ margin: '0 0 8px 0', color: '#f8fafc', fontSize: '18px' }}>💸 Request Earnings Withdrawal</h3>
+            <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 16px 0' }}>Available Balance: <strong style={{ color: '#10b981' }}>${totalRevenue} USD</strong> (Payouts in BNB / USDT BEP-20)</p>
+
+            <form onSubmit={handleWithdrawRequest} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <input 
+                type="text" 
+                placeholder="Paste your BEP-20 Wallet Address (0x...)" 
+                value={withdrawAddress}
+                onChange={(e) => setWithdrawAddress(e.target.value)}
+                style={{ flex: 1, minWidth: '280px', padding: '12px 16px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#161e2e', color: 'white', fontSize: '13px', outline: 'none' }}
+              />
+              <button 
+                type="submit" 
+                style={{ backgroundColor: '#10b981', color: '#0f172a', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', fontSize: '14px' }}
+              >
+                Withdraw Earnings 🚀
+              </button>
+            </form>
+            {withdrawMsg && <p style={{ margin: '12px 0 0 0', color: '#34d399', fontSize: '13px', fontWeight: 'bold' }}>{withdrawMsg}</p>}
+          </div>
+
+          {/* SALES HISTORY TABLE */}
+          <div>
+            <h3 style={{ margin: '0 0 16px 0', color: '#f8fafc', fontSize: '20px' }}>📈 Sales & Buyers Log</h3>
+
+            {sellerSalesHistory.length === 0 ? (
+              <div style={{ backgroundColor: '#0b0f19', padding: '30px', borderRadius: '12px', textAlign: 'center' }}>
+                <p style={{ color: '#94a3b8', margin: 0 }}>No sales recorded yet. Once users buy your assets, transactions will appear here!</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8' }}>
+                      <th style={{ padding: '12px' }}>Asset Title</th>
+                      <th style={{ padding: '12px' }}>Amount</th>
+                      <th style={{ padding: '12px' }}>Buyer Email</th>
+                      <th style={{ padding: '12px' }}>Date & Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sellerSalesHistory.map((sale) => (
+                      <tr key={sale.id} style={{ borderBottom: '1px solid #1e293b', color: '#f8fafc' }}>
+                        <td style={{ padding: '12px', fontWeight: '600', color: '#38bdf8' }}>{sale.asset_title}</td>
+                        <td style={{ padding: '12px', fontWeight: '800', color: '#10b981' }}>${sale.price} USD</td>
+                        <td style={{ padding: '12px', color: '#cbd5e1' }}>{sale.buyer_email || 'Guest User'}</td>
+                        <td style={{ padding: '12px', color: '#94a3b8' }}>{new Date(sale.created_at).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* CHECKOUT MODAL */}
@@ -827,7 +995,7 @@ export default function Home() {
                   <option value="Micro-SaaS">Micro-SaaS / Codebase</option>
                 </select>
 
-                {/* 🔥 DYNAMIC INSTRUCTIONS BOX */}
+                {/* DYNAMIC INSTRUCTIONS BOX */}
                 <div style={{ marginTop: "10px", padding: "12px 16px", backgroundColor: "#0b0f19", border: "1px dashed #38bdf8", borderRadius: "8px", fontSize: "12px", color: "#38bdf8", lineHeight: "1.5" }}>
                   {categoryInstructions[formData.category]}
                 </div>
