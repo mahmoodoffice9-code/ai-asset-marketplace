@@ -42,16 +42,6 @@ export default function Home() {
   const [payoutsHistory, setPayoutsHistory] = useState([]);
   const [supportTickets, setSupportTickets] = useState([]);
   const [user, setUser] = useState(null);
-
-  // 🤝 RESELLER STATES
-  const [resellerProfile, setResellerProfile] = useState(null);
-  const [resellerReferrals, setResellerReferrals] = useState([]);
-  const [resellerSales, setResellerSales] = useState([]);
-  const [bscAddressInput, setBscAddressInput] = useState("");
-  const [customCouponInput, setCustomCouponInput] = useState("");
-  const [resellerTab, setResellerTab] = useState("overview"); // overview, referrals, sales, payouts
-  const [resellerStartDate, setResellerStartDate] = useState("");
-  const [resellerEndDate, setResellerEndDate] = useState("");
   
   // Auth States
   const [email, setEmail] = useState("");
@@ -63,7 +53,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("All");
 
   // Detail Modal & Payment Modal States
-  const [viewingAsset, setViewingAsset] = useState(null); 
+  const [viewingAsset, setViewingAsset] = useState(null); // 👈 For Asset Detail Modal
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [paymentData, setPaymentData] = useState(null);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
@@ -108,17 +98,6 @@ export default function Home() {
     fetchApprovedAssets();
     checkUser();
 
-    // Check URL for Referral or Coupon Code tracking
-    const params = new URLSearchParams(window.location.search);
-    const refCode = params.get("ref");
-    const couponCode = params.get("coupon");
-    if (refCode) {
-      localStorage.setItem("ai_hub_ref", refCode);
-    }
-    if (couponCode) {
-      localStorage.setItem("ai_hub_coupon", couponCode);
-    }
-
     // Load Local Purchased History
     const localPurchases = localStorage.getItem("ai_hub_purchases");
     if (localPurchases) {
@@ -136,7 +115,6 @@ export default function Home() {
         const cleanEmail = currentUser.email ? currentUser.email.trim().toLowerCase() : "";
         fetchUserAssets(cleanEmail);
         fetchSellerSales(cleanEmail);
-        fetchResellerData(currentUser.id);
         setSupportEmail(cleanEmail);
         if (cleanEmail === ADMIN_EMAIL) {
           fetchAllAssetsAdmin();
@@ -159,7 +137,6 @@ export default function Home() {
       const cleanEmail = user.email ? user.email.trim().toLowerCase() : "";
       fetchUserAssets(cleanEmail);
       fetchSellerSales(cleanEmail);
-      fetchResellerData(user.id);
       setSupportEmail(cleanEmail);
       if (cleanEmail === ADMIN_EMAIL) {
         fetchAllAssetsAdmin();
@@ -167,67 +144,6 @@ export default function Home() {
         fetchAllSalesAdmin();
         fetchPayoutsAdmin();
       }
-    }
-  };
-
-  // -------------------------------------------------------------
-  // RESELLER DATA FETCHERS & ACTIONS
-  // -------------------------------------------------------------
-  const fetchResellerData = async (userId) => {
-    // 1. Fetch Reseller Profile
-    const { data: profile } = await supabase
-      .from("reseller_profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .single();
-
-    if (profile) {
-      setResellerProfile(profile);
-      setBscAddressInput(profile.bsc_wallet_address || "");
-      setCustomCouponInput(profile.reseller_code || "");
-      
-      // 2. Fetch Referred Users
-      const { data: refs } = await supabase
-        .from("referrals")
-        .select(`*, referred_user:auth.users(email)`)
-        .eq("reseller_id", profile.id)
-        .order("created_at", { ascending: false });
-
-      if (refs) setResellerReferrals(refs);
-
-      // 3. Fetch Reseller Sales Tracking (5% Profit)
-      const { data: sales } = await supabase
-        .from("sales_tracking")
-        .select(`*, buyer:auth.users(email), products(title)`)
-        .eq("reseller_id", profile.id)
-        .order("created_at", { ascending: false });
-
-      if (sales) setResellerSales(sales);
-    }
-  };
-
-  const handleRegisterAsReseller = async (e) => {
-    e.preventDefault();
-    if (!user) return alert("Please login first!");
-    if (!bscAddressInput) return alert("Please enter your BSC (BNB) wallet address for Friday payouts!");
-
-    const defaultCode = `reseller_${user.id.slice(0, 6)}`;
-    const codeToUse = customCouponInput.trim() || defaultCode;
-
-    const { data, error } = await supabase.from("reseller_profiles").upsert([
-      {
-        user_id: user.id,
-        reseller_code: codeToUse,
-        bsc_wallet_address: bscAddressInput.trim(),
-      }
-    ], { onConflict: 'user_id' }).select().single();
-
-    if (error) {
-      alert("Error setting up reseller account: " + error.message);
-    } else {
-      alert("✅ Reseller Account Activated Successfully!");
-      setResellerProfile(data);
-      fetchResellerData(user.id);
     }
   };
 
@@ -252,7 +168,6 @@ export default function Home() {
       setUser(data.user);
       fetchUserAssets(cleanEmail);
       fetchSellerSales(cleanEmail);
-      fetchResellerData(data.user.id);
       setSupportEmail(cleanEmail);
       
       if (cleanEmail === ADMIN_EMAIL) {
@@ -271,9 +186,6 @@ export default function Home() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    setResellerProfile(null);
-    setResellerReferrals([]);
-    setResellerSales([]);
     setAuthMsg("");
   };
 
@@ -503,9 +415,9 @@ export default function Home() {
   // NOWPAYMENTS API & PAYMENT VERIFICATION
   // -------------------------------------------------------------
   const createNowPayment = async (asset) => {
-    setViewingAsset(null); 
+    setViewingAsset(null); // Close Detail Modal if open
     setSelectedAsset(asset);
-    setSelectedWallet(""); 
+    setSelectedWallet(""); // Reset wallet selection
     setPaymentSubmitted(false);
     setPaymentData(null);
     setCreatingPayment(true);
@@ -540,12 +452,15 @@ export default function Home() {
     }
   };
 
+  // 👛 REDIRECT USER TO WALLET FOR DIRECT PAYMENT
   const handleOpenWalletAndPay = () => {
     if (!paymentData || !paymentData.pay_address) return;
 
+    // Address and BNB Amount
     const address = paymentData.pay_address;
     const amount = paymentData.pay_amount;
 
+    // Clipboard copy backup
     navigator.clipboard?.writeText?.(address);
 
     let redirectUrl = "";
@@ -564,6 +479,7 @@ export default function Home() {
         redirectUrl = `https://go.cb-w.com/pay?address=${address}`;
         break;
       default:
+        // Generic fallback / Copy & open web
         redirectUrl = `https://bscscan.com/address/${address}`;
         break;
     }
@@ -613,54 +529,6 @@ export default function Home() {
           price: asset.price,
         },
       ]);
-    }
-
-    // Check if referral or coupon code was used
-    const refCode = localStorage.getItem("ai_hub_ref");
-    const couponCode = localStorage.getItem("ai_hub_coupon");
-    const codeToCheck = refCode || couponCode;
-
-    if (codeToCheck && user) {
-      // Find reseller
-      const { data: reseller } = await supabase
-        .from("reseller_profiles")
-        .select("*")
-        .eq("reseller_code", codeToCheck)
-        .single();
-
-      if (reseller && reseller.user_id !== user.id) {
-        // 1. Record Referral if not already exists
-        const { data: existingRef } = await supabase
-          .from("referrals")
-          .select("*")
-          .eq("reseller_id", reseller.id)
-          .eq("referred_user_id", user.id)
-          .single();
-
-        if (!existingRef) {
-          await supabase.from("referrals").insert([
-            { reseller_id: reseller.id, referred_user_id: user.id }
-          ]);
-        }
-
-        // 2. Record 5% Reseller Profit Sale Tracking
-        const profitAmount = Number(asset.price) * 0.05;
-        await supabase.from("sales_tracking").insert([
-          {
-            reseller_id: reseller.id,
-            buyer_id: user.id,
-            workflow_id: asset.id,
-            total_amount: asset.price,
-            reseller_profit: profitAmount,
-            payout_status: "pending"
-          }
-        ]);
-
-        // 3. Update total earnings on reseller profile
-        await supabase.from("reseller_profiles")
-          .update({ total_earnings: Number(reseller.total_earnings || 0) + profitAmount })
-          .eq("id", reseller.id);
-      }
     }
   };
 
@@ -736,23 +604,6 @@ export default function Home() {
   });
   const customDateRevenue = customDateSales.reduce((sum, item) => sum + Number(item.price || 0), 0);
 
-  // Reseller Filtered Stats
-  const resellerTodaySales = resellerSales.filter(s => s.created_at && s.created_at.startsWith(todayStr));
-  const resellerTodayProfit = resellerTodaySales.reduce((sum, item) => sum + Number(item.reseller_profit || 0), 0);
-
-  const resellerYesterdaySales = resellerSales.filter(s => s.created_at && s.created_at.startsWith(yesterdayStr));
-  const resellerYesterdayProfit = resellerYesterdaySales.reduce((sum, item) => sum + Number(item.reseller_profit || 0), 0);
-
-  const resellerCustomSales = resellerSales.filter(s => {
-    if (!s.created_at) return false;
-    const sDate = s.created_at.split("T")[0];
-    if (resellerStartDate && sDate < resellerStartDate) return false;
-    if (resellerEndDate && sDate > resellerEndDate) return false;
-    return true;
-  });
-  const resellerCustomProfit = resellerCustomSales.reduce((sum, item) => sum + Number(item.reseller_profit || 0), 0);
-  const resellerTotalEarned = resellerSales.reduce((sum, item) => sum + Number(item.reseller_profit || 0), 0);
-
   const filteredAssets = assets.filter((item) => {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           item.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -788,16 +639,6 @@ export default function Home() {
               style={{ backgroundColor: activeTab === "your-store" ? "#10b981" : "#064e3b", color: "white", border: "1px solid #10b981", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "700" }}
             >
               🏪 Your Store
-            </button>
-          )}
-
-          {/* 🤝 RESELLER DASHBOARD BUTTON */}
-          {user && (
-            <button 
-              onClick={() => { setActiveTab("reseller-dashboard"); fetchResellerData(user.id); }}
-              style={{ backgroundColor: activeTab === "reseller-dashboard" ? "#f59e0b" : "#78350f", color: "white", border: "1px solid #f59e0b", padding: "8px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "700" }}
-            >
-              🤝 Reseller Hub
             </button>
           )}
 
@@ -917,6 +758,7 @@ export default function Home() {
                 {filteredAssets.map((item) => (
                   <div key={item.id} style={{ backgroundColor: '#161e2e', border: '1px solid #243045', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', transition: 'all 0.2s ease-in-out' }}>
                     <div>
+                      {/* 🏷️ CATEGORY BADGE & PRICE */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                         <span style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)', padding: '5px 12px', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.3)', textTransform: 'uppercase' }}>
                           ⚡ {item.category}
@@ -924,6 +766,7 @@ export default function Home() {
                         <span style={{ color: '#10b981', fontWeight: '800', fontSize: '18px' }}>${item.price} USD</span>
                       </div>
 
+                      {/* 📌 CLICKABLE TITLE FOR FULL DETAILS */}
                       <h3 
                         onClick={() => setViewingAsset(item)}
                         style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: '800', color: '#f8fafc', cursor: 'pointer', textDecorationLine: 'none' }}
@@ -933,6 +776,7 @@ export default function Home() {
                         {item.title} <span style={{ fontSize: '14px', color: '#38bdf8' }}>↗</span>
                       </h3>
 
+                      {/* SHORT DESCRIPTION ON CARDS */}
                       <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.5', minHeight: '42px', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                         {item.description}
                       </p>
@@ -962,234 +806,6 @@ export default function Home() {
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* 🤝 RESELLER DASHBOARD TAB (COMPLETE SYSTEM) */}
-      {/* ------------------------------------------------------------- */}
-      {activeTab === "reseller-dashboard" && user && (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', backgroundColor: '#161e2e', padding: '32px', borderRadius: '20px', border: '1px solid #f59e0b' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '30px' }}>
-            <div>
-              <h1 style={{ fontSize: '28px', margin: 0, color: '#f8fafc' }}>🤝 Reseller Hub & Partner Dashboard</h1>
-              <p style={{ color: '#94a3b8', fontSize: '14px', margin: '4px 0 0 0' }}>Earn <strong style={{ color: '#10b981' }}>5% profit per sale</strong> via your custom link or coupon code! Payouts sent every Friday in BNB on BSC.</p>
-            </div>
-
-            <button 
-              onClick={() => fetchResellerData(user.id)}
-              style={{ backgroundColor: '#0f172a', color: '#38bdf8', border: '1px solid #334155', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}
-            >
-              🔄 Refresh Reseller Stats
-            </button>
-          </div>
-
-          {!resellerProfile ? (
-            <div style={{ backgroundColor: '#0b0f19', padding: '32px', borderRadius: '16px', border: '1px solid #243045', textAlign: 'center' }}>
-              <h3 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '22px' }}>🚀 Activate Your Reseller Account</h3>
-              <p style={{ color: '#94a3b8', fontSize: '14px', maxWidth: '500px', margin: '0 auto 20px auto' }}>Enter your BSC wallet address where you want to receive your Friday BNB payouts and set your custom coupon code name.</p>
-              
-              <form onSubmit={handleRegisterAsReseller} style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '450px', margin: '0 auto' }}>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="BSC Wallet Address (0x... for Friday BNB payout)" 
-                  value={bscAddressInput}
-                  onChange={(e) => setBscAddressInput(e.target.value)}
-                  style={{ padding: '12px 16px', borderRadius: '10px', border: '1px solid #334155', backgroundColor: '#161e2e', color: 'white', fontSize: '14px', outline: 'none' }}
-                />
-                <input 
-                  type="text" 
-                  placeholder="Custom Coupon Code (e.g. ALI20 - Optional)" 
-                  value={customCouponInput}
-                  onChange={(e) => setCustomCouponInput(e.target.value)}
-                  style={{ padding: '12px 16px', borderRadius: '10px', border: '1px solid #334155', backgroundColor: '#161e2e', color: 'white', fontSize: '14px', outline: 'none' }}
-                />
-                <button type="submit" style={{ backgroundColor: '#f59e0b', color: '#0f172a', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '16px' }}>
-                  Activate Reseller Profile 🚀
-                </button>
-              </form>
-            </div>
-          ) : (
-            <div>
-              {/* Promo Links & Coupon Box */}
-              <div style={{ backgroundColor: '#0b0f19', padding: '24px', borderRadius: '16px', border: '1px solid #243045', marginBottom: '30px' }}>
-                <h3 style={{ color: '#38bdf8', margin: '0 0 12px 0', fontSize: '18px' }}>🔗 Your Unique Reseller Tools</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-                  <div style={{ backgroundColor: '#161e2e', padding: '16px', borderRadius: '12px', border: '1px solid #334155' }}>
-                    <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Your Referral Link</p>
-                    <input 
-                      type="text" 
-                      readOnly 
-                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}?ref=${resellerProfile.reseller_code}`}
-                      onClick={(e) => { e.target.select(); navigator.clipboard.writeText(e.target.value); alert("Copied referral link to clipboard!"); }}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #243045', backgroundColor: '#0b0f19', color: '#38bdf8', fontSize: '12px', cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: '11px', color: '#64748b', display: 'block', marginTop: '4px' }}>Click box to copy link</span>
-                  </div>
-
-                  <div style={{ backgroundColor: '#161e2e', padding: '16px', borderRadius: '12px', border: '1px solid #334155' }}>
-                    <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Your Coupon Code</p>
-                    <h2 style={{ color: '#f59e0b', margin: '4px 0 0 0', fontSize: '20px', fontFamily: 'monospace' }}>{resellerProfile.reseller_code}</h2>
-                    <span style={{ fontSize: '11px', color: '#64748b', display: 'block', marginTop: '4px' }}>BSC Wallet: {resellerProfile.bsc_wallet_address.slice(0, 6)}...{resellerProfile.bsc_wallet_address.slice(-4)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Reseller Navigation Tabs */}
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', flexWrap: 'wrap' }}>
-                {[
-                  { id: 'overview', label: '📊 Earnings & Stats' },
-                  { id: 'referrals', label: `👥 Users List (${resellerReferrals.length})` },
-                  { id: 'sales', label: `🛒 Sales & Profit Log (${resellerSales.length})` },
-                  { id: 'payouts', label: '🟡 Friday Payouts (BSC BNB)' }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setResellerTab(tab.id)}
-                    style={{
-                      backgroundColor: resellerTab === tab.id ? '#f59e0b' : '#0b0f19',
-                      color: resellerTab === tab.id ? '#0f172a' : '#94a3b8',
-                      border: resellerTab === tab.id ? 'none' : '1px solid #334155',
-                      padding: '10px 18px',
-                      borderRadius: '10px',
-                      fontWeight: '800',
-                      cursor: 'pointer',
-                      fontSize: '13px'
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* TAB 1: OVERVIEW */}
-              {resellerTab === 'overview' && (
-                <div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '30px' }}>
-                    <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
-                      <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Earnings (5%)</p>
-                      <h2 style={{ color: '#10b981', margin: 0, fontSize: '26px', fontWeight: '800' }}>${resellerTotalEarned.toFixed(2)} USD</h2>
-                    </div>
-
-                    <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
-                      <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Sign-ups</p>
-                      <h2 style={{ color: '#38bdf8', margin: 0, fontSize: '26px', fontWeight: '800' }}>{resellerReferrals.length}</h2>
-                    </div>
-
-                    <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
-                      <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Today's Profit ☀️</p>
-                      <h2 style={{ color: '#f59e0b', margin: 0, fontSize: '26px', fontWeight: '800' }}>${resellerTodayProfit.toFixed(2)}</h2>
-                    </div>
-
-                    <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #243045' }}>
-                      <p style={{ color: '#94a3b8', fontSize: '11px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Yesterday's Profit 🌙</p>
-                      <h2 style={{ color: '#c084fc', margin: 0, fontSize: '26px', fontWeight: '800' }}>${resellerYesterdayProfit.toFixed(2)}</h2>
-                    </div>
-                  </div>
-
-                  {/* Custom Date Range Filter */}
-                  <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '14px', border: '1px solid #243045' }}>
-                    <h4 style={{ color: '#f8fafc', margin: '0 0 12px 0', fontSize: '14px' }}>📅 Custom Date Range Filter</h4>
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Start Date</label>
-                        <input type="date" value={resellerStartDate} onChange={(e) => setResellerStartDate(e.target.value)} style={{ backgroundColor: '#161e2e', color: 'white', border: '1px solid #334155', padding: '8px', borderRadius: '6px', fontSize: '13px' }} />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>End Date</label>
-                        <input type="date" value={resellerEndDate} onChange={(e) => setResellerEndDate(e.target.value)} style={{ backgroundColor: '#161e2e', color: 'white', border: '1px solid #334155', padding: '8px', borderRadius: '6px', fontSize: '13px' }} />
-                      </div>
-                      <div style={{ marginTop: '16px' }}>
-                        <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '16px', marginLeft: '10px' }}>
-                          Filtered Profit: ${resellerCustomProfit.toFixed(2)} USD ({resellerCustomSales.length} Sales)
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 2: REFERRED USERS LIST */}
-              {resellerTab === 'referrals' && (
-                <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '14px', border: '1px solid #243045' }}>
-                  <h3 style={{ color: '#f8fafc', margin: '0 0 16px 0', fontSize: '18px' }}>👥 Users Who Signed Up via Your Link / Code</h3>
-                  {resellerReferrals.length === 0 ? (
-                    <p style={{ color: '#94a3b8' }}>No users have signed up through your link or code yet. Share it on social media! 🚀</p>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8' }}>
-                            <th style={{ padding: '12px' }}>User Email / Username</th>
-                            <th style={{ padding: '12px' }}>Signup Date</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {resellerReferrals.map((ref) => (
-                            <tr key={ref.id} style={{ borderBottom: '1px solid #1e293b', color: '#f8fafc' }}>
-                              <td style={{ padding: '12px', fontWeight: '600', color: '#38bdf8' }}>{ref.referred_user?.email || 'Anonymous User'}</td>
-                              <td style={{ padding: '12px', color: '#94a3b8' }}>{new Date(ref.created_at).toLocaleString()}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 3: SALES & PROFIT LOG */}
-              {resellerTab === 'sales' && (
-                <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '14px', border: '1px solid #243045' }}>
-                  <h3 style={{ color: '#f8fafc', margin: '0 0 16px 0', fontSize: '18px' }}>🛒 Purchasing History & Profit Log (5% Per Sale)</h3>
-                  {resellerSales.length === 0 ? (
-                    <p style={{ color: '#94a3b8' }}>No sales recorded through your reseller link yet.</p>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8' }}>
-                            <th style={{ padding: '12px' }}>Product Title</th>
-                            <th style={{ padding: '12px' }}>Buyer Email</th>
-                            <th style={{ padding: '12px' }}>Sale Amount</th>
-                            <th style={{ padding: '12px' }}>Your 5% Profit</th>
-                            <th style={{ padding: '12px' }}>Date</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {resellerSales.map((sale) => (
-                            <tr key={sale.id} style={{ borderBottom: '1px solid #1e293b', color: '#f8fafc' }}>
-                              <td style={{ padding: '12px', fontWeight: '600', color: '#38bdf8' }}>{sale.products?.title || 'AI Asset'}</td>
-                              <td style={{ padding: '12px', color: '#cbd5e1' }}>{sale.buyer?.email || 'User'}</td>
-                              <td style={{ padding: '12px', color: '#94a3b8' }}>${sale.total_amount} USD</td>
-                              <td style={{ padding: '12px', fontWeight: '800', color: '#10b981' }}>+${sale.reseller_profit} USD</td>
-                              <td style={{ padding: '12px', color: '#64748b' }}>{new Date(sale.created_at).toLocaleString()}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 4: PAYOUTS */}
-              {resellerTab === 'payouts' && (
-                <div style={{ backgroundColor: '#0b0f19', padding: '20px', borderRadius: '14px', border: '1px solid #243045' }}>
-                  <h3 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '18px' }}>🟡 Friday Payouts (BSC BNB Transfer)</h3>
-                  <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 20px 0' }}>All accrued earnings are automatically processed and transferred every Friday directly to your registered BSC wallet address: <strong style={{ color: '#38bdf8' }}>{resellerProfile.bsc_wallet_address}</strong></p>
-
-                  <div style={{ backgroundColor: '#161e2e', padding: '18px', borderRadius: '12px', border: '1px solid #334155' }}>
-                    <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 4px 0', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Earnings / Withdrawn</p>
-                    <h2 style={{ color: '#10b981', margin: 0, fontSize: '24px', fontWeight: '800' }}>${resellerTotalEarned.toFixed(2)} USD</h2>
-                    <p style={{ color: '#34d399', fontSize: '12px', margin: '6px 0 0 0' }}>Status: Scheduled for upcoming Friday payout cycle ✅</p>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------- */}
       {/* 🔍 FULL ATTRACTIVE ASSET DETAILS MODAL SCREEN */}
       {/* ------------------------------------------------------------- */}
       {viewingAsset && !selectedAsset && (
@@ -1201,6 +817,7 @@ export default function Home() {
             ← Back to Marketplace
           </button>
 
+          {/* Top Bar Details */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
             <div>
               <span style={{ fontSize: '12px', fontWeight: '800', color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.3)', textTransform: 'uppercase' }}>
@@ -1222,6 +839,7 @@ export default function Home() {
 
           <hr style={{ borderColor: '#243045', margin: '28px 0' }} />
 
+          {/* Detailed Features & Description Box */}
           <div style={{ marginBottom: '30px' }}>
             <h3 style={{ color: '#f8fafc', fontSize: '18px', fontWeight: '800', marginBottom: '12px' }}>📖 Complete Description & Deliverables</h3>
             <div style={{ backgroundColor: '#0b0f19', padding: '24px', borderRadius: '16px', border: '1px solid #1e293b', color: '#cbd5e1', fontSize: '15px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
@@ -1229,6 +847,7 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Highlights & Guarantees Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '30px' }}>
             <div style={{ backgroundColor: '#0b0f19', padding: '14px 18px', borderRadius: '12px', border: '1px solid #1e293b' }}>
               <span style={{ color: '#f59e0b', fontSize: '13px', fontWeight: 'bold' }}>⚡ Instant Access</span>
@@ -1240,6 +859,7 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Action Button */}
           <button 
             onClick={() => createNowPayment(viewingAsset)}
             style={{ width: '100%', backgroundColor: '#10b981', color: '#0f172a', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: '800', fontSize: '18px', cursor: 'pointer', boxShadow: '0 0 20px rgba(16, 185, 129, 0.25)' }}
@@ -1530,6 +1150,7 @@ export default function Home() {
             </div>
           ) : paymentData ? (
             <div>
+              {/* 👛 STEP 1: SELECT WALLET */}
               <div style={{ marginBottom: '20px', backgroundColor: '#0b0f19', padding: '18px', borderRadius: '12px', border: '1px solid #243045' }}>
                 <label style={{ display: 'block', color: '#38bdf8', fontWeight: '800', fontSize: '14px', marginBottom: '8px' }}>
                   1️⃣ Select Your Crypto Wallet:
@@ -1548,6 +1169,7 @@ export default function Home() {
                 </select>
               </div>
 
+              {/* DETAILS & PAY BUTTON SHOWS ONLY WHEN WALLET IS SELECTED */}
               {selectedWallet ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   <div style={{ backgroundColor: '#0f172a', padding: '14px', borderRadius: '10px', border: '1px solid #334155' }}>
@@ -1556,6 +1178,7 @@ export default function Home() {
                     <p style={{ color: '#94a3b8', fontSize: '11px', margin: '6px 0 0 0', fontFamily: 'monospace', wordBreak: 'break-all' }}>Target Address: {paymentData.pay_address}</p>
                   </div>
 
+                  {/* ⚡ PAY BUTTON TO OPEN SELECTED WALLET */}
                   <button 
                     onClick={handleOpenWalletAndPay} 
                     style={{ width: '100%', backgroundColor: '#f59e0b', color: '#0f172a', padding: '14px', borderRadius: '10px', fontWeight: '800', border: 'none', cursor: 'pointer', fontSize: '16px' }}
@@ -1565,6 +1188,7 @@ export default function Home() {
 
                   <hr style={{ borderColor: '#243045', margin: '10px 0' }} />
 
+                  {/* VERIFY PAYMENT BUTTON */}
                   <button 
                     onClick={verifyNowPaymentStatus} 
                     disabled={verifyingPayment} 
